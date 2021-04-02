@@ -46,10 +46,9 @@ bindsym $mod+c exec gsimplecal
 bindsym $mod+Escape kill
 
 # dmenu is how you start programs
-# There also is the (new) i3-dmenu-desktop which only displays applications
-# shipping a .desktop file. It is a wrapper around dmenu, so you need that
-# installed.
-bindsym $mod+d exec i3-dmenu-desktop --dmenu='rofi -show-icons -show drun --font "System San Francisco Display 18"'
+# There also is the (new) i3-dmenu-desktop which only displays applicationsshipping a .desktop file. It is a wrapper around dmenu, so you need that installed.
+bindsym $mod+d exec rofi -modi "drun" -show-icons -show drun --font "System San Francisco Display 18"
+bindsym $mod+shift+w exec rofi -modi "window" -show-icons -show window --font "System San Francisco Display 18"
 
 # i3 uses jkl; instead of hjkl -- fix that
 bindsym $mod+h focus left
