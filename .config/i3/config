@@ -22,7 +22,7 @@ exec_always xrandr --dpi 96 --output LVDS-1-1 --mode 1366x768 --pos 0x592 --rota
 exec picom -f --vsync
 
 # Bluetooth tray
-exec_always blueman-applet
+exec --no-startup-id blueman-applet
 
 # Hosthatch mount
 # exec rclone mount hosthatch:/ /home/ram/hosthatch --daemon 2> /tmp/i3errors
