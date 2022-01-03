@@ -2,6 +2,7 @@
 
 # Using apt
 
+sudo apt-get update
 sudo apt-get install \
 	i3 \
 	i3-wm \
