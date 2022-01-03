@@ -15,8 +15,9 @@
 
 set $mod Mod4
 set $bg-color               #2f343f
-set $active-bg-color        #bf616a
+set $active-bg-color        #fec7dcd
 set $text-color             #d8dee8
+set $active-text-color      #333333
 set $urgent-bg-color        #ebcb8b
 set $seperator-color        #d8dee8
 
@@ -39,15 +40,14 @@ set $ws10 "10"
 ###########
 
 # Screen layout
-exec_always ~/.screenlayout/main.sh
+exec_always xrandr ~/.screenlayout/main.sh
 
-exec_always feh --bg-fill ~/.wallpaper.png
+exec --no-startup-id hsetroot -center ~/.wallpaper.png
 exec --no-startup-id xsettingsd &
 exec --no-startup-id compton -b
 
 # Bluetooth tray
 exec --no-startup-id blueman-applet
-
 
 # The combination of xss-lock, nm-applet and pactl is a popular choice, so
 # they are included here as an example. Modify as you see fit.
@@ -80,8 +80,8 @@ bindsym $mod+c exec gsimplecal
 bindsym $mod+Escape xkill
 
 # start dmenu (a program launcher)
-bindsym $super+Shift+d exec i3-dmenu-desktop --dmenu="dmenu -i -fn 'Noto Sans:size=8'"
-bindsym $super+d exec rofi -lines 12 -padding 18 -width 60 -location 0 -show drun -sidebar-mode -columns 3 -font 'Noto Sans 8'
+bindsym $mod+Shift+d exec i3-dmenu-desktop --dmenu="dmenu -i -fn 'Noto Sans:size=10'"
+bindsym $mod+d exec rofi -lines 12 -padding 18 -width 60 -location 0 -show drun -sidebar-mode -columns 3 -font 'Noto Sans 10'
 
 #change volume
 bindsym XF86AudioRaiseVolume exec amixer -q set Master 5%+
@@ -180,12 +180,12 @@ bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'You pressed the exit shortcu
 # STYLES #
 ##########
 
-font pango: Noto Sans 8
+font pango: Noto Sans 10
 
 for_window [class=".*"] border pixel 4
 
 # colour of border, background, text, indicator, and child_border
-client.focused              $active-bg-color $bg-color $text-color $active-bg-color $text-color
+client.focused              $active-bg-color $bg-color $text-color $active-bg-color $active-bg-color
 client.focused_inactive     $bg-color $bg-color $text-color $bg-color $bg-color
 client.unfocused            $bg-color $bg-color $text-color $bg-color $bg-color
 client.urgent               $bg-color $bg-color $text-color $bg-color $bg-color
@@ -202,10 +202,10 @@ bar {
         separator $separator-color
 
         # colour of border, background, and text
-        focused_workspace       $bg-color $active-bg-color $text-color
+        focused_workspace       $active-bg-color $active-bg-color $active-text-color
         active_workspace        $bg-color $bg-color $text-color
         inactive_workspace      $bg-color $bg-color $text-color
-        urgent_workspacei       $bg-color $urgent-bg-color $bg-color
+        urgent_workspace       $bg-color $urgent-bg-color $bg-color
     }
     status_command i3status
 }
@@ -261,4 +261,4 @@ mode "$mode_system" {
     bindsym Return mode "default"
     bindsym Escape mode "default"
 }
-bindsym $mod+p "$mode_system"
+bindsym $mod+p mode "$mode_system"

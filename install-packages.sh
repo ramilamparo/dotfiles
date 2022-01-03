@@ -11,7 +11,6 @@ sudo apt-get install \
 	i3status \
 	suckless-tools \
 	compton \
-	hsetroot \
 	rxvt-unicode \
 	xsel \
 	rofi \
