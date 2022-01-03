@@ -14,24 +14,24 @@
 #############
 
 set $mod Mod4
-set $bg-color 	         #2f343f
-set $inactive-bg-color   #2f343f
-set $text-color          #f3f4f5
-set $inactive-text-color #676E7D
-set $urgent-bg-color     #E53935
+set $bg-color               #2f343f
+set $active-bg-color        #bf616a
+set $text-color             #d8dee8
+set $urgent-bg-color        #ebcb8b
+set $seperator-color        #d8dee8
 
 # Define names for default workspaces for which we configure key bindings later on.
 # We use variables to avoid repeating the names in multiple places.
-set $ws1 "1:Web Browser "
-set $ws2 "2:Editor "
-set $ws3 "3:Terminal "
+set $ws1 "1"
+set $ws2 "2"
+set $ws3 "3"
 set $ws4 "4"
 set $ws5 "5"
 set $ws6 "6"
 set $ws7 "7"
 set $ws8 "8"
 set $ws9 "9"
-set $ws10 "10:Status "
+set $ws10 "10"
 
 
 ###########
@@ -40,6 +40,10 @@ set $ws10 "10:Status "
 
 # Screen layout
 exec_always xrandr ~/.screenlayout/main.sh
+
+exec --no-startup-id hsetroot -center ~/.wallpaper.png
+exec --no-startup-id xsettingsd &
+exec --no-startup-id compton -b
 
 # Bluetooth tray
 exec --no-startup-id blueman-applet
@@ -74,9 +78,20 @@ bindsym $mod+c exec gsimplecal
 # Kill current window
 bindsym $mod+Escape xkill
 
-# Shows app list
-bindsym $mod+d exec rofi -modi "drun" -show-icons -show drun --font "System San Francisco Display 18"
-bindsym $mod+shift+w exec rofi -modi "window" -show-icons -show window --font "System San Francisco Display 18"
+# start dmenu (a program launcher)
+bindsym $super+Shift+d exec i3-dmenu-desktop --dmenu="dmenu -i -fn 'Noto Sans:size=8'"
+bindsym $super+d exec rofi -lines 12 -padding 18 -width 60 -location 0 -show drun -sidebar-mode -columns 3 -font 'Noto Sans 8'
+
+#change volume
+bindsym XF86AudioRaiseVolume exec amixer -q set Master 5%+
+bindsym XF86AudioLowerVolume exec amixer -q set Master 5%-
+bindsym XF86AudioMute exec amixer set Master toggle
+
+# music control
+bindsym XF86AudioNext exec mpc next
+bindsym XF86AudioPrev exec mpc prev
+bindsym XF86AudioPlay exec mpc toggle
+bindsym XF86AudioStop exec mpc stop
 
 # i3 uses jkl; instead of hjkl -- fix that
 bindsym $mod+h focus left
@@ -160,18 +175,39 @@ bindsym $mod+Shift+r restart
 # exit i3 (logs you out of your X session)
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'You pressed the exit shortcut. Do you really want to exit i3? This will end your X session.' -B 'Yes, exit i3' 'i3-msg exit'"
 
+##########
+# STYLES #
+##########
 
-#########
-# FONTS #
-#########
+font pango: Noto Sans 8
 
-# Font for window titles. Will also be used by the bar unless a different font
-# is used in the bar {} block below.
-font pango:System San Franscisco Display 12
+for_window [class=".*"] border pixel 4
 
-# This font is widely installed, provides lots of unicode glyphs, right-to-left
-# text rendering and scalability on retina/hidpi displays (thanks to pango).
-#font pango:DejaVu Sans Mono 8
+# colour of border, background, text, indicator, and child_border
+client.focused              $active-bg-color $bg-color $text-color $active-bg-color $text-color
+client.focused_inactive     $bg-color $bg-color $text-color $bg-color $bg-color
+client.unfocused            $bg-color $bg-color $text-color $bg-color $bg-color
+client.urgent               $bg-color $bg-color $text-color $bg-color $bg-color
+client.placeholder          $bg-color $bg-color $text-color $bg-color $bg-color
+client.background           $bg-color
+
+#######
+# BAR #
+#######
+bar {
+        colors {
+        background $bg-color
+        statusline $bg-color
+        separator $separator-color
+
+        # colour of border, background, and text
+        focused_workspace       $bg-color $active-bg-color $text-color
+        active_workspace        $bg-color $bg-color $text-color
+        inactive_workspace      $bg-color $bg-color $text-color
+        urgent_workspacei       $bg-color $urgent-bg-color $bg-color
+    }
+    status_command i3status
+}
 
 ########
 # MISC #
@@ -179,9 +215,6 @@ font pango:System San Franscisco Display 12
 
 # Use Mouse+$mod to drag floating windows to their wanted position
 floating_modifier $mod
-
-# Hide split indicator
-hide_edge_borders both
 
 # Force windows on workspace.
 assign [class="Firefox Developer Edition"] $ws1
@@ -213,27 +246,6 @@ mode "resize" {
         bindsym $mod+r mode "default"
 }
 bindsym $mod+r mode "resize"
-
-# Window colors
-client.focused          $bg-color           $bg-color          $text-color          #00ff00
-client.unfocused        $inactive-bg-color $inactive-bg-color $inactive-text-color #00ff00
-client.focused_inactive $inactive-bg-color $inactive-bg-color $inactive-text-color #00ff00
-client.urgent           $urgent-bg-color    $urgent-bg-color   $text-color          #00ff00
-
-# Start i3bar to display a workspace bar (plus the system information i3status
-# finds out, if available)
-bar {
-	tray_output primary
-	status_command i3blocks
-	colors {
-		background $bg-color
-	    	separator #757575
-		#                  border             background         text
-		focused_workspace  $bg-color          $bg-color          $text-color
-		inactive_workspace $inactive-bg-color $inactive-bg-color $inactive-text-color
-		urgent_workspace   $urgent-bg-color   $urgent-bg-color   $text-color
-	}
-}
 
 set $mode_system System (l) Lock, (e) Logout, (s) Suspend, (h) Hibernate, (r) reboot, (Shift+s) Shutdown
 mode "$mode_system" {
