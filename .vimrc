@@ -50,12 +50,3 @@ set ai
 
 " Indent text on brackets.
 set si
-
-" Mappings
-" Helper for inserting quotes on a visual block.
-":vnoremap <Leader>" di""<Esc>h""pl
-":vnoremap <Leader>' di''<Esc>h""pl
-":vnoremap <Leader>( di()<Esc>h""pl
-":vnoremap <Leader>{ di{}<Esc>h""pl
-":vnoremap <Leader>[ di[]<Esc>h""pl
-

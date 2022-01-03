@@ -38,19 +38,11 @@ set $ws10 "10:Status "
 # STARTUP #
 ###########
 
-# For using multi monitors
-exec_always xrandr --output LVDS-1-1 --mode 1366x768 --pos 0x592 --rotate normal --output VGA-1-1 --off --output HDMI-1-1 --primary --mode 1920x1080 --pos 1366x0 --rotate normal --output DP-1-1 --off
-
-exec picom -f --vsync
+# Screen layout
+exec_always xrandr ~/.screenlayout/main.sh
 
 # Bluetooth tray
 exec --no-startup-id blueman-applet
-
-# Hosthatch mount
-# exec rclone mount hosthatch:/ /home/ram/hosthatch --daemon 2> /tmp/i3errors
-
-# Setting wallpaper
-exec_always feh --bg-fill /home/ram/Pictures/Wallpapers/ycn03d7ildi51.png
 
 # The combination of xss-lock, nm-applet and pactl is a popular choice, so
 # they are included here as an example. Modify as you see fit.
@@ -68,7 +60,10 @@ exec_always --no-startup-id nm-applet
 ################
 
 # Moving workspaces between screens 
-bindsym $mod+p move workspace to output right
+bindsym $mod+Control+h move workspace to output left
+bindsym $mod+Control+j move workspace to output down
+bindsym $mod+Control+k move workspace to output up
+bindsym $mod+Control+l move workspace to output right
 
 # Open screenshot tool
 bindsym $mod+shift+s exec flameshot gui
@@ -77,7 +72,7 @@ bindsym $mod+shift+s exec flameshot gui
 bindsym $mod+c exec gsimplecal
 
 # Kill current window
-bindsym $mod+Escape kill
+bindsym $mod+Escape xkill
 
 # Shows app list
 bindsym $mod+d exec rofi -modi "drun" -show-icons -show drun --font "System San Francisco Display 18"
@@ -101,31 +96,6 @@ bindsym $mod+Shift+h move left
 bindsym $mod+Shift+j move down
 bindsym $mod+Shift+k move up
 bindsym $mod+Shift+l move right
-
-# Pulse Audio controls
-# bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume 0 +5% #increase sound volume
-# bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume 0 -5% #decrease sound volume
-# bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute 0 toggle # mute sound
-
-# Sreen brightness controls
-bindsym XF86MonBrightnessUp exec xbacklight -inc 20 # increase screen brightness
-bindsym XF86MonBrightnessDown exec xbacklight -dec 20 # decrease screen brightness
-
-# Touchpad controls
-bindsym XF86TouchpadToggle exec /opt/toggletouchpad.sh # toggle touchpad
-
-# Media player controls
-bindsym XF86AudioPlay exec playerctl play
-bindsym XF86AudioPause exec playerctl pause
-bindsym XF86AudioNext exec playerctl next
-bindsym XF86AudioPrev exec playerctl previous
-
-# Use pactl to adjust volume in PulseAudio.
-set $refresh_i3status killall -SIGUSR1 i3status
-bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ +10% && $refresh_i3status
-bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ -10% && $refresh_i3status
-bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle && $refresh_i3status
-bindsym XF86AudioMicMute exec --no-startup-id pactl set-source-mute @DEFAULT_SOURCE@ toggle && $refresh_i3status
 
 # start a terminal
 bindsym $mod+Return exec i3-sensible-terminal
@@ -212,11 +182,6 @@ floating_modifier $mod
 
 # Hide split indicator
 hide_edge_borders both
-
-# Force certain workspace to secondary monitor
-workspace $ws1 output HDMI-1-1 VGA-1-1
-workspace $ws2 output HDMI-1-1 VGA-1-1
-workspace $ws3 output LVDS-1-1
 
 # Force windows on workspace.
 assign [class="Firefox Developer Edition"] $ws1
