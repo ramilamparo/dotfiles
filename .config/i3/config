@@ -42,7 +42,7 @@ set $ws10 "10"
 # Screen layout
 exec_always ~/.screenlayout/main.sh
 
-exec --no-startup-id hsetroot -center ~/.wallpaper.png
+exec --no-startup-id wallpaper ~/.wallpaper.png
 exec --no-startup-id xsettingsd &
 exec --no-startup-id compton -b
 
@@ -81,7 +81,8 @@ bindsym $mod+Escape xkill
 
 # start dmenu (a program launcher)
 bindsym $mod+Shift+d exec i3-dmenu-desktop --dmenu="dmenu -i -fn 'Noto Sans:size=10'"
-bindsym $mod+d exec rofi -lines 12 -padding 18 -width 60 -location 0 -show drun -sidebar-mode -columns 3 -font 'Noto Sans 10'
+bindsym $mod+d exec rofi -lines 12 -padding 18 -width 60 -location 0 -show-icons -show window -show drun -sidebar-mode -columns 3 -font 'Noto Sans 10'
+bindsym $mod+d exec rofi -modi "window" -lines 12 -padding 18 -width 60 -location 0 -show-icons -show window -show drun -sidebar-mode -columns 3 -font 'Noto Sans 10'
 
 #change volume
 bindsym XF86AudioRaiseVolume exec amixer -q set Master 5%+
