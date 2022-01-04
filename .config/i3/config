@@ -42,7 +42,7 @@ set $ws10 "10"
 # Screen layout
 exec_always ~/.screenlayout/main.sh
 
-exec --no-startup-id wallpaper ~/.wallpaper.png
+exec_always feh --bg-fill ~/.wallpaper.png
 exec --no-startup-id xsettingsd &
 exec --no-startup-id compton -b
 
