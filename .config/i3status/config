@@ -36,7 +36,7 @@ disk "/home" {
 volume master {
         format = "<span background='#ebcb8b'>  %volume </span>"
         format_muted = "<span background='#ebcb8b'>  Muted </span>"
-        device = "systemdefault"
+        device = "hw:0"
         mixer = "Master"
         mixer_idx = 0
 }
