@@ -19,7 +19,7 @@ order += "battery 1"
 order += "tztime local"
 
 memory {
-        format = "<span background='#bf616a'>  %free </span>"
+        format = "<span background='#d1e8e4'>  %free </span>"
 }
 
 cpu_usage {
