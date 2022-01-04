@@ -39,6 +39,7 @@ volume master {
         device = "hw:0"
         mixer = "Master"
         mixer_idx = 0
+        interval = 1
 }
 
 battery 1 {
