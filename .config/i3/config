@@ -40,7 +40,7 @@ set $ws10 "10"
 ###########
 
 # Screen layout
-exec_always xrandr ~/.screenlayout/main.sh
+exec_always ~/.screenlayout/main.sh
 
 exec --no-startup-id hsetroot -center ~/.wallpaper.png
 exec --no-startup-id xsettingsd &
