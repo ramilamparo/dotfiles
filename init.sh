@@ -14,6 +14,7 @@ sudo apt-get install \
 	rxvt-unicode \
 	xsel \
 	rofi \
+	feh \
 	fonts-noto \
 	fonts-mplus \
 	xsettingsd \
