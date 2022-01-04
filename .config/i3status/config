@@ -23,11 +23,11 @@ memory {
 }
 
 cpu_usage {
-        format = "<span background='#bf616a'>  %usage </span>"
+        format = "<span background='#bccc9a'>  %usage </span>"
 }
 
 cpu_temperature 0 {
-        format = "<span background='#bf616a'>  %degrees °C </span>"
+        format = "<span background='#eae7c6'>  %degrees °C </span>"
         path = "/sys/class/thermal/thermal_zone0/temp"
 }
 
