@@ -21,3 +21,5 @@ sudo apt-get install \
 	flameshot \
 	gsimplecal \
 	xclip
+
+printf "\nsource .bashrc.custom" >>.bashrc

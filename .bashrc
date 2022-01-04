@@ -1,31 +1,3 @@
-# Custom config.
-
-wtfis() {
-    curl -s "https://cheat.sh/$1"
-}
-
-# Automatically start ssh-agent
-eval $(ssh-agent) >/dev/null
-ssh-add ~/.ssh/azure-ssh &>/dev/null
-
-# Use vim as default editor
-export VISUAL=vim
-export EDITOR="$VISUAL"
-export SYSTEMD_EDITOR="$EDITOR"
-
-# Use vi commands in bash.
-set -o vi
-
-# Xclip can be used for clipboard tools. Ex. "pwd | xclip -seleciton c" copies pwd to clipboard.
-# Use clipboard as default.
-alias setclip="xclip -selection c"
-alias getclip="xclip -selection c -o"
-
-# Adding custom paths
-export PATH="$PATH:~/.local/bin"
-
-# Default config.
-
 # ~/.bashrc: executed by bash(2) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
 # for examples
