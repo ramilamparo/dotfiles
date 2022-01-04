@@ -20,6 +20,7 @@ sudo apt-get install \
 	lxappearance \
 	flameshot \
 	gsimplecal \
-	xclip
+	xclip \
+	arc-theme
 
 [[ -f ".bashrc" ]] && printf "\nsource .bashrc.custom" >>.bashrc
