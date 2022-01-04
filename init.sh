@@ -22,4 +22,4 @@ sudo apt-get install \
 	gsimplecal \
 	xclip
 
-printf "\nsource .bashrc.custom" >>.bashrc
+[[ -f ".bashrc" ]] && printf "\nsource .bashrc.custom" >>.bashrc
