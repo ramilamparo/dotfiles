@@ -80,9 +80,8 @@ bindsym $mod+c exec gsimplecal
 bindsym $mod+Escape xkill
 
 # start dmenu (a program launcher)
-bindsym $mod+Shift+d exec i3-dmenu-desktop --dmenu="dmenu -i -fn 'Noto Sans:size=10'"
-bindsym $mod+d exec rofi -modi drun -lines 12 -padding 18 -width 60 -location 0 -show-icons -sidebar-mode -columns 3 -font 'Noto Sans 10'
-bindsym $mod+Shift+w exec rofi -modi window -lines 12 -padding 18 -width 60 -location 0 -show-icons -show window -show drun -sidebar-mode -columns 3 -font 'Noto Sans 10'
+bindsym $mod+d exec rofi -modi drun -show drun -show window -lines 12 -padding 18 -width 60 -location 0 -show-icons -sidebar-mode -columns 3 -font 'Noto Sans 10'
+bindsym $mod+Shift+w exec rofi -modi window -show window -show drun -lines 12 -padding 18 -width 60 -location 0 -show-icons -sidebar-mode -columns 3 -font 'Noto Sans 10'
 
 #change volume
 bindsym XF86AudioRaiseVolume exec amixer -q set Master 5%+
