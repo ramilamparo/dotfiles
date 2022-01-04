@@ -8,7 +8,6 @@ general {
         color_bad = '#ba5e57'
 }
 
-order += "load"
 order += "memory"
 order += "cpu_usage"
 order += "cpu_temperature 0"
@@ -18,10 +17,6 @@ order += "wireless wlp5s0"
 order += "volume master"
 order += "battery 1"
 order += "tztime local"
-
-load {
-        format = "<span background='#f59335'>  %5min Load </span>"
-}
 
 memory {
         format = "<span background='#bf616a'>  %used </span>"
@@ -56,7 +51,7 @@ battery 1 {
         status_bat = "Battery"
         status_unk = "Unknown"
         status_full = "Charged"
-        path = "/sys/class/power_supply/BAT%d/uevent"
+        path = "/sys/class/power_supply/BAT0/uevent"
         low_threshold = 10
 }
 
