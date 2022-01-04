@@ -180,7 +180,7 @@ bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'You pressed the exit shortcu
 # STYLES #
 ##########
 
-font pango: Noto Sans, la-regular-400 10
+font pango: Noto Sans, Hack Nerd Font Mono 10
 
 for_window [class=".*"] border pixel 4
 
