@@ -196,6 +196,7 @@ client.background           $bg-color
 # BAR #
 #######
 bar {
+    status_command exec ~/.local/bin/net-speed.sh
         colors {
         background $bg-color
         statusline $bg-color

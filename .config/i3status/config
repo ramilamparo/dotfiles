@@ -20,15 +20,15 @@ order += "battery 1"
 order += "tztime local"
 
 load {
-        format = "<span background='#f59335'>  %5min Load </span>"
+        format = "<span background='#f59335'>   %5min Load </span>"
 }
 
 memory {
-        format = "<span background='#bf616a'>  %used </span>"
+        format = "<span background='#bf616a'>   %used </span>"
 }
 
 cpu_usage {
-        format = "<span background='#bf616a'>  %usage </span>"
+        format = "<span background='#bf616a'>   %usage </span>"
 }
 
 cpu_temperature 0 {
@@ -37,17 +37,7 @@ cpu_temperature 0 {
 }
 
 disk "/" {
-        format = "<span background='#fec7cd'>  %free Free </span>"
-}
-
-ethernet enp1s0 {
-        format_up = "<span background='#88c0d0'> 祝 %ip </span>"
-        format_down = "<span background='#88c0d0'>  Disconnected </span>"
-}
-
-wireless wlp2s0 {
-        format_up = "<span background='#b48ead'> 直 %essid </span>"
-        format_down = "<span background='#b48ead'> 睊 Disconnected </span>"
+        format = "<span background='#fec7cd'>   %free Free </span>"
 }
 
 volume master {
