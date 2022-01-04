@@ -1,6 +1,6 @@
 #!/bin/sh
 lock() {
-    i3lock -i ~/.wallpaper.png --color "#2f343f" &
+    i3lock-fancy &
     sleep 3 && xset dpms force off
 }
 

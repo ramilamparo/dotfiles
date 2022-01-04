@@ -22,6 +22,9 @@ sudo apt-get install \
 	flameshot \
 	gsimplecal \
 	xclip \
-	arc-theme
+	arc-theme \
+	git \
+	i3lock-fancy \
+	wmctrl
 
 [[ -f ".bashrc" ]] && printf "\nsource .bashrc.custom" >>.bashrc
