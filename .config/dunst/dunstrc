@@ -30,10 +30,7 @@ title = Dunst
 class = Dunst
 
 [shortcuts]
-close = ctrl+space
-close_all = ctrl+shift+space
-history = ctrl+grave
-context = ctrl+shift+period
+history = ctrl+period
 
 [urgency_low]
 background = "#2f343f"
