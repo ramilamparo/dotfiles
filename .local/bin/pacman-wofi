@@ -1,0 +1,331 @@
+#!/bin/bash
+
+# Package manager launcher for Sway with wofi
+# Searches pacman, yay (AUR), and flatpak with fuzzy sorting via fzf --filter
+# Supports tag-based searching: title:"multi word" desc:"multi word" source:pacman
+
+# Configuration
+TERM="${TERM:-ghostty}"
+MAX_RESULTS=50
+
+# Create temp files
+PACMAN_RESULTS=$(mktemp)
+YAY_RESULTS=$(mktemp)
+FLATPAK_RESULTS=$(mktemp)
+
+# Cleanup on exit
+trap "rm -f $PACMAN_RESULTS $YAY_RESULTS $FLATPAK_RESULTS" EXIT
+
+# Function to parse search query and extract tags
+# Returns: title_query, desc_query, source_filter, general_query
+parse_query() {
+    local input="$1"
+    local title=""
+    local desc=""
+    local source=""
+    local general=""
+    
+    # Process title: tags with quoted multi-word support
+    title=$(echo "$input" | grep -oP 'title:"[^"]*"' | head -1 | sed 's/title:"//;s/"$//')
+    if [ -n "$title" ]; then
+        input=$(echo "$input" | sed "s/title:\"$title\"//")
+    fi
+    
+    # Process desc: tags with quoted multi-word support  
+    desc=$(echo "$input" | grep -oP 'desc:"[^"]*"' | head -1 | sed 's/desc:"//;s/"$//')
+    if [ -n "$desc" ]; then
+        input=$(echo "$input" | sed "s/desc:\"$desc\"//")
+    fi
+    
+    # Also handle desc: without quotes (single word)
+    if [ -z "$desc" ]; then
+        desc=$(echo "$input" | grep -oP 'desc:[^[:space:]]+' | head -1 | sed 's/desc://')
+        if [ -n "$desc" ]; then
+            input=$(echo "$input" | sed "s/desc:$desc//")
+        fi
+    fi
+    
+    # Process source: tags
+    source=$(echo "$input" | grep -oP 'source:[^[:space:]]+' | head -1 | sed 's/source://')
+    if [ -n "$source" ]; then
+        input=$(echo "$input" | sed "s/source:$source//")
+    fi
+    
+    # Remaining is general search - clean up extra spaces
+    general="$(echo "$input" | tr -s ' ' | sed 's/^ *//;s/ *$//')"
+    
+    echo "$title"
+    echo "$desc"
+    echo "$source"
+    echo "$general"
+}
+
+# Function to extract title from result line
+extract_title() {
+    local line="$1"
+    # Format: [source] pkgname version ...
+    # Extract just the package name (second field)
+    echo "$line" | awk '{print $2}'
+}
+
+# Function to extract description from result line
+extract_description() {
+    local line="$1"
+    # Everything after " - "
+    echo "$line" | sed 's/^[^]]*] [^ ]* [^ ]* - //'
+}
+
+# Function to search pacman
+search_pacman() {
+    local query="$1"
+    pacman -Ss "$query" 2>/dev/null | awk '
+        /^[^ ]/ {
+            if (NR > 1) print ""
+            pkg = $1
+            ver = $2
+            getline
+            sub(/^[ \t]+/, "")
+            desc = $0
+            printf "[pacman] %s %s - %s", pkg, ver, desc
+        }
+    ' > "$PACMAN_RESULTS"
+}
+
+# Function to search yay (AUR only)
+search_yay() {
+    local query="$1"
+    yay -Ss --aur "$query" 2>/dev/null | awk '
+        /^aur\// {
+            sub(/^aur\//, "")
+            pkg = $1
+            ver = $2
+            match($0, /\(\+([0-9]+)/, arr)
+            votes = arr[1]
+            getline
+            sub(/^[ \t]+/, "")
+            desc = $0
+            if (votes > 0) {
+                printf "[yay] %s %s ★%s - %s", pkg, ver, votes, desc
+            } else {
+                printf "[yay] %s %s - %s", pkg, ver, desc
+            }
+            print ""
+        }
+    ' > "$YAY_RESULTS"
+}
+
+# Function to search flatpak
+search_flatpak() {
+    local query="$1"
+    flatpak search "$query" 2>/dev/null | awk -F'\t' '
+        NF >= 3 {
+            app_id = $1
+            name = $2
+            desc = $3
+            printf "[flatpak] %s - %s (%s)", app_id, desc, name
+            print ""
+        }
+    ' > "$FLATPAK_RESULTS"
+}
+
+# Function to get search term from wofi
+get_search_term() {
+    echo "" | wofi \
+        --dmenu \
+        --prompt "Search packages (title:\"name\" desc:\"desc\" source:pacman)" \
+        --width 800 \
+        --height 100 \
+        --location center
+}
+
+# Function to perform search based on source filter
+perform_search() {
+    local query="$1"
+    local source_filter="$2"
+    
+    case "$source_filter" in
+        pacman)
+            search_pacman "$query"
+            cat "$PACMAN_RESULTS"
+            ;;
+        yay)
+            search_yay "$query"
+            cat "$YAY_RESULTS"
+            ;;
+        flatpak)
+            search_flatpak "$query"
+            cat "$FLATPAK_RESULTS"
+            ;;
+        *)
+            # Search all sources
+            search_pacman "$query" &
+            search_yay "$query" &
+            search_flatpak "$query" &
+            wait
+            {
+                cat "$PACMAN_RESULTS"
+                cat "$YAY_RESULTS"
+                cat "$FLATPAK_RESULTS"
+            } | grep -v '^$'
+            ;;
+    esac
+}
+
+# Function to filter results by title using fzf
+filter_by_title() {
+    local results="$1"
+    local title_query="$2"
+    
+    if [ -z "$title_query" ]; then
+        echo "$results"
+        return
+    fi
+    
+    # Create temp file for titles
+    local titles_file=$(mktemp)
+    local matched_titles=$(mktemp)
+    
+    # Extract titles
+    echo "$results" | while IFS= read -r line; do
+        title=$(echo "$line" | awk '{print $2}')
+        echo "$title"
+    done > "$titles_file"
+    
+    # Filter titles with fzf
+    fzf --filter "$title_query" < "$titles_file" > "$matched_titles"
+    
+    # Find original lines matching these titles
+    while IFS= read -r matched_title; do
+        echo "$results" | grep " $matched_title "
+    done < "$matched_titles"
+    
+    # Cleanup
+    rm -f "$titles_file" "$matched_titles"
+}
+
+# Function to filter results by description using fzf
+filter_by_description() {
+    local results="$1"
+    local desc_query="$2"
+    
+    if [ -z "$desc_query" ]; then
+        echo "$results"
+        return
+    fi
+    
+    # Create temp file for descriptions
+    local descs_file=$(mktemp)
+    local matched_descs=$(mktemp)
+    
+    # Extract descriptions
+    echo "$results" | while IFS= read -r line; do
+        desc=$(echo "$line" | sed 's/^[^]]*] [^ ]* [^ ]* - //')
+        echo "$desc"
+    done > "$descs_file"
+    
+    # Filter descriptions with fzf
+    fzf --filter "$desc_query" < "$descs_file" > "$matched_descs"
+    
+    # Find original lines matching these descriptions
+    while IFS= read -r matched_desc; do
+        echo "$results" | grep " - $matched_desc$"
+    done < "$matched_descs"
+    
+    # Cleanup
+    rm -f "$descs_file" "$matched_descs"
+}
+
+# Function to install selected package
+install_package() {
+    local selection="$1"
+    
+    if [[ "$selection" =~ ^\[pacman\] ]]; then
+        pkg=$(echo "$selection" | awk '{print $2}')
+        $TERM -e bash -c "echo 'Installing $pkg from pacman...'; sudo pacman -S '$pkg'; echo ''; echo 'Press Enter to close...'; read"
+    elif [[ "$selection" =~ ^\[yay\] ]]; then
+        pkg=$(echo "$selection" | awk '{print $2}')
+        $TERM -e bash -c "echo 'Installing $pkg from AUR...'; yay -S '$pkg'; echo ''; echo 'Press Enter to close...'; read"
+    elif [[ "$selection" =~ ^\[flatpak\] ]]; then
+        app_id=$(echo "$selection" | awk '{print $2}')
+        $TERM -e bash -c "echo 'Installing $app_id from FlatHub...'; flatpak install flathub '$app_id'; echo ''; echo 'Press Enter to close...'; read"
+    fi
+}
+
+# Main flow
+
+# Step 1: Get search term
+query=$(get_search_term)
+
+# Exit if user cancelled
+[ -z "$query" ] && exit 0
+
+# Step 2: Parse query for tags
+parsed=$(parse_query "$query")
+title_query=$(echo "$parsed" | sed -n '1p')
+desc_query=$(echo "$parsed" | sed -n '2p')
+source_filter=$(echo "$parsed" | sed -n '3p')
+general_query=$(echo "$parsed" | sed -n '4p')
+
+# Determine what to search for
+search_term="${general_query:-$title_query}"
+if [ -z "$search_term" ]; then
+    search_term="$desc_query"
+fi
+
+# Exit if nothing to search
+[ -z "$search_term" ] && exit 0
+
+# Step 3: Search all sources (or filtered source)
+all_results=$(perform_search "$search_term" "$source_filter")
+
+# Check if we got any results
+if [ -z "$all_results" ]; then
+    echo "No results found" | wofi \
+        --dmenu \
+        --prompt "No packages found" \
+        --width 400 \
+        --height 100 \
+        --location center
+    exit 0
+fi
+
+# Step 4: Apply tag-based filtering
+filtered_results="$all_results"
+
+# Filter by title if specified
+if [ -n "$title_query" ]; then
+    filtered_results=$(filter_by_title "$filtered_results" "$title_query")
+fi
+
+# Filter by description if specified
+if [ -n "$desc_query" ]; then
+    filtered_results=$(filter_by_description "$filtered_results" "$desc_query")
+fi
+
+# If no tag filters applied, use general fuzzy sort
+if [ -z "$title_query" ] && [ -z "$desc_query" ]; then
+    filtered_results=$(echo "$filtered_results" | fzf --filter "$search_term")
+fi
+
+# Take top results
+final_results=$(echo "$filtered_results" | head -n $MAX_RESULTS)
+
+# If filtering returned nothing, fall back to original results
+if [ -z "$final_results" ]; then
+    final_results=$(echo "$all_results" | head -n $MAX_RESULTS)
+fi
+
+# Step 5: Show results in wofi
+selection=$(echo "$final_results" | wofi \
+    --dmenu \
+    --prompt "Select package to install" \
+    --width 900 \
+    --height 500 \
+    --location center \
+    --insensitive)
+
+# Exit if user cancelled
+[ -z "$selection" ] && exit 0
+
+# Step 6: Install selected package
+install_package "$selection"

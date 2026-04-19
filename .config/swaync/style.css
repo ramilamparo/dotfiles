@@ -1,0 +1,109 @@
+@define-color base #1e1e2e;
+@define-color mantle #181825;
+@define-color crust #11111b;
+@define-color text #cdd6f4;
+@define-color subtext0 #a6adc8;
+@define-color surface0 #313244;
+@define-color surface1 #45475a;
+@define-color overlay0 #6c7086;
+@define-color blue #89b4fa;
+@define-color lavender #b4befe;
+@define-color sapphire #74c7ec;
+@define-color sky #89dceb;
+@define-color teal #94e2d5;
+@define-color green #a6e3a1;
+@define-color yellow #f9e2af;
+@define-color peach #fab387;
+@define-color maroon #eba0ac;
+@define-color red #f38ba8;
+@define-color mauve #cba6f7;
+@define-color pink #f5c2e7;
+@define-color flamingo #f2cdcd;
+@define-color rosewater #f5e0dc;
+
+* {
+    font-family: "RobotoMono Nerd Font";
+    font-size: 14px;
+}
+
+.notification {
+    background-color: @base;
+    border: 2px solid @surface1;
+    border-radius: 12px;
+    margin: 6px;
+    padding: 12px;
+}
+
+.notification-content {
+    color: @text;
+}
+
+.notification-default-action {
+    background-color: transparent;
+}
+
+.notification-default-action:hover {
+    background-color: @surface0;
+    border-radius: 8px;
+}
+
+.close-button {
+    background-color: @red;
+    color: @crust;
+    border-radius: 50%;
+    padding: 4px;
+    margin: 4px;
+}
+
+.control-center {
+    background-color: @base;
+    border: 2px solid @surface1;
+    border-radius: 16px;
+    padding: 12px;
+}
+
+.widget-title {
+    color: @text;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.widget-dnd {
+    color: @text;
+    margin: 8px 0;
+}
+
+.widget-dnd > switch {
+    background-color: @surface0;
+    border-radius: 12px;
+}
+
+.widget-dnd > switch:checked {
+    background-color: @green;
+}
+
+.widget-mpris {
+    background-color: @surface0;
+    border-radius: 12px;
+    padding: 12px;
+    margin: 8px 0;
+}
+
+.widget-mpris-player {
+    color: @text;
+}
+
+.widget-volume {
+    background-color: @surface0;
+    border-radius: 12px;
+    padding: 8px;
+    margin: 8px 0;
+}
+
+.widget-backlight {
+    background-color: @surface0;
+    border-radius: 12px;
+    padding: 8px;
+    margin: 8px 0;
+}

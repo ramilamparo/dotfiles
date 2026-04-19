@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Wrapper script for opencode run with a custom base prompt
+# Usage: opencode-run [-n] "message in quotes"
+# Supports stdin piping: ls -la | opencode-run "what do these files mean?"
+# -n: start a new session (overrides the saved session in /tmp)
+# Without -n: continues the last session using /tmp/opencode_last_session
+# Output is formatted with glow (https://github.com/charmbracelet/glow)
+
+BASE_PROMPT="You are answering a single, standalone question with no follow-up conversation. Provide a comprehensive, well-structured, and detailed response. Do not ask clarifying questions—make reasonable assumptions and explain them."
+
+SESSION_FILE="/tmp/opencode_last_session"
+GLOW_BIN="$HOME/go/bin/glow"
+
+# Helper: filter only valid JSON lines from opencode output
+filter_json_lines() {
+    grep '^\s*{' | sed 's/^[[:space:]]*//'
+}
+
+# Helper: extract session ID from JSON output
+extract_session_id() {
+    local output="$1"
+    if command -v jq >/dev/null 2>&1; then
+        echo "$output" | filter_json_lines | jq -r 'select(.sessionID != null) | .sessionID' | head -1
+    else
+        echo "$output" | filter_json_lines | head -1 | sed -n 's/.*"sessionID":"\([^"]*\)".*/\1/p'
+    fi
+}
+
+# Helper: extract and print text content from JSON output and pipe through glow
+print_text_output() {
+    local output="$1"
+    local json_lines
+    json_lines=$(echo "$output" | filter_json_lines)
+    if command -v jq >/dev/null 2>&1 && [[ -x "$GLOW_BIN" ]]; then
+        echo "$json_lines" | jq -r 'select(.type == "text") | .part.text' | "$GLOW_BIN"
+    elif command -v jq >/dev/null 2>&1; then
+        echo "$json_lines" | jq -r 'select(.type == "text") | .part.text'
+    else
+        echo "$json_lines" | grep '"type":"text"' | sed 's/.*"text":"\([^"]*\)".*/\1/; s/\\n/\n/g'
+    fi
+}
+
+# Helper: run opencode and save session ID
+run_and_save() {
+    local msg="$1"
+    local session_arg="$2"
+    local output
+    local session_id
+
+    if [[ -n "$session_arg" ]]; then
+        output=$(opencode run --session "$session_arg" --format json "$msg" 2>&1)
+    else
+        output=$(opencode run --format json "$msg" 2>&1)
+    fi
+
+    session_id=$(extract_session_id "$output")
+    if [[ -n "$session_id" ]]; then
+        echo "$session_id" > "$SESSION_FILE"
+    fi
+    print_text_output "$output"
+}
+
+# Helper: check if output indicates a stale session
+is_stale_session() {
+    local output="$1"
+    echo "$output" | grep -q "Session not found\|NotFoundError"
+}
+
+# Parse flags
+new_session=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -n)
+            new_session=true
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# The remaining argument is the message (should be quoted)
+message="$1"
+
+# Check if stdin has piped data
+piped_content=""
+if [ -p /dev/stdin ] || [ ! -t 0 ]; then
+    piped_content=$(cat)
+fi
+
+# Build the full message
+if [[ -n "$piped_content" ]]; then
+    full_message="Here is some terminal output:\n\`\`\`\n$piped_content\n\`\`\`\n\nUser question: $message"
+else
+    full_message="$message"
+fi
+
+if [[ "$new_session" == true ]]; then
+    # Prepend base prompt for new sessions
+    full_message="$BASE_PROMPT\n\n$full_message"
+    run_and_save "$full_message" ""
+else
+    # Continue last session - don't prepend base prompt
+    if [[ -f "$SESSION_FILE" ]]; then
+        session_id=$(cat "$SESSION_FILE")
+        output=$(opencode run --session "$session_id" --format json "$full_message" 2>&1)
+
+        if is_stale_session "$output"; then
+            echo "(Previous session expired, starting new session)" >&2
+            full_message="$BASE_PROMPT\n\n$full_message"
+            run_and_save "$full_message" ""
+        else
+            new_id=$(extract_session_id "$output")
+            if [[ -n "$new_id" ]]; then
+                echo "$new_id" > "$SESSION_FILE"
+            fi
+            print_text_output "$output"
+        fi
+    else
+        # No saved session, start new
+        full_message="$BASE_PROMPT\n\n$full_message"
+        run_and_save "$full_message" ""
+    fi
+fi

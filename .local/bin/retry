@@ -1,0 +1,57 @@
+#!/bin/bash
+# retry - Re-run a command until it succeeds or max retries are reached
+
+usage() {
+    echo "Usage: retry [-n MAX_RETRIES] [-d DELAY] [-b BACKOFF] COMMAND [ARGS...]"
+    echo ""
+    echo "Options:"
+    echo "  -n MAX_RETRIES  Maximum number of retries (default: 5, 0 = unlimited)"
+    echo "  -d DELAY        Initial delay between retries in seconds (default: 1)"
+    echo "  -b BACKOFF      Backoff multiplier for delay (default: 1, no backoff)"
+    echo "  -h              Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  retry curl -fsSL https://example.com"
+    echo "  retry -n 10 -d 2 ping -c 1 google.com"
+    echo "  retry -n 3 -d 1 -b 2 some_flaky_command"
+    exit 1
+}
+
+max_retries=5
+delay=1
+backoff=1
+
+while getopts "n:d:b:h" opt; do
+    case $opt in
+        n) max_retries="$OPTARG" ;;
+        d) delay="$OPTARG" ;;
+        b) backoff="$OPTARG" ;;
+        h) usage ;;
+        *) usage ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+if [ $# -eq 0 ]; then
+    echo "Error: No command specified." >&2
+    usage
+fi
+
+count=0
+
+while true; do
+    "$@" && exit 0
+
+    exit_code=$?
+    count=$((count + 1))
+
+    if [ "$max_retries" -ne 0 ] && [ "$count" -ge "$max_retries" ]; then
+        echo "retry: command failed after $count attempt(s) (exit code $exit_code)" >&2
+        exit "$exit_code"
+    fi
+
+    echo "retry: attempt $count failed (exit code $exit_code), retrying in ${delay}s..." >&2
+    sleep "$delay"
+    delay=$(awk "BEGIN {print $delay * $backoff}")
+done

@@ -1,0 +1,119 @@
+# Device configuration packages
+# This file lists all packages to be installed by install.sh
+#
+# Each package has:
+#   - name: identifier (used for logging)
+#   - arch: installation method for Arch Linux
+#   - ubuntu: installation method for Ubuntu
+#
+# Installation method can be:
+#   type: pacman    -> sudo pacman -S <package>
+#   type: yay       -> yay -S <package>
+#   type: apt       -> sudo apt install <package>
+#   type: script    -> run a custom script (relative to repo root)
+#   null            -> skip on this distro
+#
+# Optional fields:
+#   package: override the package name (defaults to 'name')
+#   condition: gpu_amd | gpu_nvidia | always (default)
+
+packages:
+  # --- Core / Shell ---
+  - name: zsh
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  - name: starship
+    arch: { type: pacman }
+    ubuntu: { type: script, script: scripts/install-starship.sh }
+
+  - name: nvm
+    arch: { type: script, script: scripts/install-nvm.sh }
+    ubuntu: { type: script, script: scripts/install-nvm.sh }
+
+  - name: neovim
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  - name: fzf
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  - name: jq
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  - name: glow
+    arch: { type: pacman }
+    ubuntu: { type: script, script: scripts/install-glow.sh }
+
+  # --- Terminal ---
+  - name: ghostty
+    arch: { type: pacman }
+    ubuntu: { type: script, script: scripts/install-ghostty.sh }
+
+  # --- Sway Ecosystem ---
+  - name: sway
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  - name: swaylock
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  - name: swaync
+    arch: { type: pacman }
+    ubuntu: { type: apt, package: sway-notification-center }
+
+  - name: waybar
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  - name: wofi
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  - name: brightnessctl
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  # --- GPU Drivers (install script determines which to install) ---
+  - name: amd-gpu
+    arch: { type: pacman, package: lib32-vulkan-radeon }
+    ubuntu: { type: apt, package: mesa-vulkan-drivers }
+    condition: gpu_amd
+
+  - name: nvidia-gpu
+    arch: { type: pacman, package: nvidia-utils }
+    ubuntu: { type: apt, package: nvidia-driver-570 }
+    condition: gpu_nvidia
+
+  # --- AUR / Special ---
+  - name: yay
+    arch: { type: script, script: scripts/install-yay.sh }
+    ubuntu: null
+
+  # --- Game Streaming ---
+  - name: sunshine
+    arch: { type: yay, package: sunshine }
+    ubuntu: { type: script, script: scripts/install-sunshine-ubuntu.sh }
+
+  # --- App Stores ---
+  - name: flatpak
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  # --- Browsers ---
+  - name: chromium
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+
+  # --- Fonts ---
+  - name: ttf-roboto-mono-nerd
+    arch: { type: pacman }
+    ubuntu: { type: apt, package: fonts-roboto }
+
+  # --- Go (needed for glow and some tools) ---
+  - name: go
+    arch: { type: pacman }
+    ubuntu: { type: apt }

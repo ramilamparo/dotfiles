@@ -1,0 +1,318 @@
+@import "mocha.css";
+
+* {
+    font-family: "NotoSans Nerd Font", "NotoSans NF", sans-serif;
+    font-size: 15px;
+    min-height: 0;
+}
+
+window#waybar {
+    background-color: shade(@base, 0.95);
+    color: @text;
+    border-bottom: 2px solid alpha(@crust, 0.3);
+    transition-property: background-color;
+    transition-duration: 0.5s;
+}
+
+window#waybar.hidden {
+    opacity: 0.2;
+}
+
+/*
+window#waybar.empty {
+    background-color: transparent;
+}
+window#waybar.solo {
+    background-color: #FFFFFF;
+}
+*/
+
+
+
+
+
+#workspaces button {
+    padding: 0 12px;
+    margin: 8px 1px;
+    background-color: transparent;
+    color: @text;
+    border: none;
+    border-radius: 12px;
+}
+
+#workspaces button:hover {
+    background: alpha(@surface1, 0.5);
+    box-shadow: inherit;
+    text-shadow: inherit;
+}
+
+#workspaces button.focused, #workspaces button.active {
+    background-color: @mauve;
+    color: @crust;
+}
+
+#workspaces button.urgent {
+    background-color: @red;
+    color: @crust;
+}
+
+#mode {
+    background-color: @peach;
+    color: @crust;
+    padding: 0 10px;
+}
+
+#clock,
+#battery,
+#cpu,
+#memory,
+#disk,
+#temperature,
+#backlight,
+#network,
+#pulseaudio,
+#wireplumber,
+#custom-media,
+#tray,
+#mode,
+#idle_inhibitor,
+#scratchpad,
+#power-profiles-daemon,
+#mpd,
+#custom-notification,
+#custom-power {
+    padding: 0 14px;
+    margin: 8px 1px;
+    color: @text;
+    border-radius: 12px;
+}
+
+#window {
+    margin: 0 4px;
+}
+
+#workspaces {
+    margin: 0 4px;
+    padding: 0 4px;
+}
+
+
+
+#clock {
+    background-color: @surface0;
+    color: @text;
+}
+
+#battery {
+    background-color: @surface0;
+    color: @green;
+}
+
+#battery.charging, #battery.plugged {
+    color: @green;
+}
+
+#battery.critical:not(.charging) {
+    background-color: @red;
+    color: @crust;
+    animation-name: blink;
+    animation-duration: 0.5s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+#power-profiles-daemon {
+    background-color: @surface0;
+    padding-right: 15px;
+}
+
+#power-profiles-daemon.performance {
+    color: @red;
+}
+
+#power-profiles-daemon.balanced {
+    color: @blue;
+}
+
+#power-profiles-daemon.power-saver {
+    color: @green;
+}
+
+#cpu {
+    background-color: @surface0;
+    color: @blue;
+}
+
+#memory {
+    background-color: @surface0;
+    color: @mauve;
+}
+
+#disk {
+    background-color: @surface0;
+}
+
+#backlight {
+    background-color: @surface0;
+    color: @yellow;
+}
+
+#network {
+    background-color: @surface0;
+    color: @teal;
+}
+
+#network.disconnected {
+    background-color: @red;
+    color: @crust;
+}
+
+#pulseaudio {
+    background-color: @surface0;
+    color: @pink;
+}
+
+#pulseaudio.muted {
+    background-color: @surface0;
+    color: @overlay0;
+}
+
+#wireplumber {
+    background-color: @surface0;
+    color: @pink;
+}
+
+#wireplumber.muted {
+    background-color: @surface0;
+    color: @overlay0;
+}
+
+#custom-media {
+    background-color: @surface0;
+    color: @green;
+    min-width: 100px;
+}
+
+#temperature {
+    background-color: @surface0;
+    color: @peach;
+}
+
+#temperature.critical {
+    background-color: @red;
+    color: @crust;
+}
+
+#tray {
+    background-color: @surface0;
+}
+
+#tray > .passive {
+    -gtk-icon-effect: dim;
+}
+
+#tray > .needs-attention {
+    -gtk-icon-effect: highlight;
+    background-color: #eb4d4b;
+}
+
+#idle_inhibitor {
+    background-color: @surface0;
+}
+
+#idle_inhibitor.activated {
+    background-color: @surface1;
+    color: @text;
+}
+
+#mpd {
+    background-color: @surface0;
+    color: @green;
+}
+
+#mpd.disconnected {
+    background-color: @surface0;
+    color: @red;
+}
+
+#mpd.stopped {
+    background-color: @surface0;
+    color: @overlay0;
+}
+
+#mpd.paused {
+    background-color: @surface0;
+    color: @green;
+}
+
+#language {
+    background-color: @surface0;
+    color: @text;
+    padding: 0 5px;
+    margin: 0 5px;
+    min-width: 16px;
+}
+
+/* #keyboard-state {
+    background-color: @surface0;
+    color: @text;
+    padding: 0 0px;
+    margin: 0 5px;
+    min-width: 16px;
+}
+
+#keyboard-state > label {
+    padding: 0 5px;
+}
+
+#keyboard-state > label.locked {
+    background: alpha(@surface2, 0.5);
+} */
+
+#scratchpad {
+    background-color: @surface0;
+}
+
+#scratchpad.empty {
+    background-color: transparent;
+}
+
+#privacy {
+    padding: 0;
+}
+
+#privacy-item {
+    padding: 0 5px;
+    color: @text;
+}
+
+#privacy-item.screenshare {
+    background-color: @peach;
+}
+
+#privacy-item.audio-in {
+    background-color: @green;
+}
+
+#privacy-item.audio-out {
+    background-color: @blue;
+}
+
+#custom-notification {
+    font-family: "NotoSans Nerd Font", "NotoSans NF", sans-serif;
+    background-color: @surface0;
+}
+
+#custom-power {
+    background-color: @surface0;
+    color: @red;
+    margin-right: 12px;
+}
+
+@keyframes blink {
+    to {
+        background-color: @crust;
+        color: @red;
+    }
+}
