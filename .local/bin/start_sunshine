@@ -1,3 +1,100 @@
 #!/bin/bash
 
-retry -n 0 bash -c "WAYLAND_DISPLAY=wayland-1 XDG_RUNTIME_DIR=/run/user/1000 sunshine"
+# start_sunshine: Start sunshine streaming with only one display enabled.
+# Usage: start_sunshine <output_name> [sunshine_args...]
+# Example: start_sunshine DP-1
+#
+# On exit (normal or interrupt), all previously disabled displays are re-enabled.
+
+set -euo pipefail
+
+# --- Detect Sway socket ---
+if [[ -z "${SWAYSOCK:-}" ]]; then
+    SWAYSOCK=$(find /run/user/$(id -u) -name "sway-ipc.*.sock" 2>/dev/null | head -n1 || true)
+    if [[ -z "$SWAYSOCK" ]]; then
+        echo "Error: SWAYSOCK not set and no sway socket found." >&2
+        exit 1
+    fi
+    export SWAYSOCK
+fi
+
+# --- Helper: run swaymsg ---
+sway() {
+    swaymsg "$@"
+}
+
+# --- Get available outputs ---
+outputs_json=$(sway -t get_outputs)
+mapfile -t all_outputs < <(echo "$outputs_json" | jq -r '.[].name')
+
+if [[ ${#all_outputs[@]} -eq 0 ]]; then
+    echo "Error: No outputs detected." >&2
+    exit 1
+fi
+
+# --- Find target output from arguments ---
+target_output=""
+sunshine_args=()
+
+for arg in "$@"; do
+    if [[ -z "$target_output" ]]; then
+        for out in "${all_outputs[@]}"; do
+            if [[ "$arg" == "$out" ]]; then
+                target_output="$arg"
+                break 2
+            fi
+        done
+    fi
+    sunshine_args+=("$arg")
+done
+
+# If target was the last arg, sunshine_args is empty (that's fine)
+if [[ -n "$target_output" ]]; then
+    # Rebuild sunshine_args excluding the target output
+    sunshine_args=()
+    found=false
+    for arg in "$@"; do
+        if [[ "$arg" == "$target_output" && "$found" == false ]]; then
+            found=true
+            continue
+        fi
+        sunshine_args+=("$arg")
+    done
+fi
+
+# --- Validate ---
+if [[ -z "$target_output" ]]; then
+    echo "Error: No valid output name found in arguments." >&2
+    echo "Available outputs:" >&2
+    for out in "${all_outputs[@]}"; do
+        echo "  $out" >&2
+    done
+    exit 1
+fi
+
+# --- Identify outputs to disable ---
+disable_outputs=()
+for out in "${all_outputs[@]}"; do
+    if [[ "$out" != "$target_output" ]]; then
+        disable_outputs+=("$out")
+    fi
+done
+
+# --- Trap: re-enable disabled outputs on exit ---
+cleanup() {
+    echo "Restoring disabled displays..." >&2
+    for out in "${disable_outputs[@]}"; do
+        sway "output $out enable" 2>/dev/null || true
+    done
+}
+trap cleanup EXIT
+
+# --- Disable non-target outputs ---
+echo "Keeping display: $target_output" >&2
+for out in "${disable_outputs[@]}"; do
+    echo "Disabling display: $out" >&2
+    sway "output $out disable"
+done
+
+# --- Start sunshine ---
+retry -n 0 bash -c "WAYLAND_DISPLAY=wayland-1 XDG_RUNTIME_DIR=/run/user/1000 sunshine ${sunshine_args[*]}"

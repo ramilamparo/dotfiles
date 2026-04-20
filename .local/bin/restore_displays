@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# restore_displays: Re-enable all disabled Sway outputs.
+# Usage: restore_displays
+
+set -euo pipefail
+
+# --- Detect Sway socket ---
+if [[ -z "${SWAYSOCK:-}" ]]; then
+    SWAYSOCK=$(find /run/user/$(id -u) -name "sway-ipc.*.sock" 2>/dev/null | head -n1)
+    if [[ -z "$SWAYSOCK" ]]; then
+        echo "Error: SWAYSOCK not set and no sway socket found." >&2
+        exit 1
+    fi
+    export SWAYSOCK
+fi
+
+# --- Get outputs and re-enable disabled ones ---
+outputs_json=$(swaymsg -t get_outputs)
+mapfile -t disabled_outputs < <(echo "$outputs_json" | jq -r '.[] | select(.active == false) | .name')
+
+if [[ ${#disabled_outputs[@]} -eq 0 ]]; then
+    echo "No disabled displays found."
+    exit 0
+fi
+
+echo "Restoring displays:"
+for out in "${disabled_outputs[@]}"; do
+    echo "  $out"
+    swaymsg "output $out enable" 2>/dev/null || echo "  Failed to restore $out" >&2
+done
+
+echo "Done."
