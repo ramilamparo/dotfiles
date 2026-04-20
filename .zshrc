@@ -12,6 +12,7 @@ compinit
 HISTFILE=~/.histfile
 HISTSIZE=50000
 SAVEHIST=1000
+PAGER='less'
 bindkey -v
 # End of lines configured by zsh-newuser-install
 

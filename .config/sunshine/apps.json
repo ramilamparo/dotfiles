@@ -1,34 +1,38 @@
 {
-  "env": {
-    "PATH": "$(PATH):$(HOME)/.local/bin"
-  },
-  "apps": [
-    {
-      "name": "Desktop",
-      "image-path": "desktop.png"
-    },
-    {
-      "name": "Low Res Desktop",
-      "image-path": "desktop.png",
-      "prep-cmd": [
+    "apps": [
         {
-          "do": "xrandr --output HDMI-1 --mode 1920x1080",
-          "undo": "xrandr --output HDMI-1 --mode 1920x1200"
-        }
-      ]
-    },
-    {
-      "name": "Steam Big Picture",
-      "detached": [
-        "setsid steam steam://open/bigpicture"
-      ],
-      "prep-cmd": [
+            "image-path": "desktop.png",
+            "name": "Desktop",
+            "uuid": "A85AFEEF-06AD-B502-6195-D86A6D6F0E6D"
+        },
         {
-          "do": "",
-          "undo": "setsid steam steam://close/bigpicture"
+            "image-path": "desktop.png",
+            "name": "Low Res Desktop",
+            "prep-cmd": [
+                {
+                    "do": "xrandr --output HDMI-1 --mode 1920x1080",
+                    "undo": "xrandr --output HDMI-1 --mode 1920x1200"
+                }
+            ],
+            "uuid": "E80EE943-B4FF-A42F-8982-105CB904E55B"
+        },
+        {
+            "detached": [
+                "setsid steam steam://open/bigpicture"
+            ],
+            "image-path": "steam.png",
+            "name": "Steam Big Picture",
+            "prep-cmd": [
+                {
+                    "do": "",
+                    "undo": "setsid steam steam://close/bigpicture"
+                }
+            ],
+            "uuid": "68F8BE34-62A7-C70C-1E00-D49E22FFDFAE"
         }
-      ],
-      "image-path": "steam.png"
-    }
-  ]
+    ],
+    "env": {
+        "PATH": "$(PATH):$(HOME)/.local/bin"
+    },
+    "version": 2
 }
