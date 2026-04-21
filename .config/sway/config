@@ -293,6 +293,13 @@ bindsym $mod+r mode "resize"
     bindsym --locked XF86MonBrightnessUp exec brightnessctl set 5%+
     # Special key to take a screenshot with flameshot
     bindsym Print exec flameshot gui
+    bindsym $mod+Shift+s exec flameshot gui
+
+#
+# Help:
+#
+    # Show keybindings cheatsheet
+    bindsym $mod+F1 exec ~/.local/bin/sway-cheatsheet
 
 #
 # Status Bar:

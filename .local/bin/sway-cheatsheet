@@ -1,6 +1,5 @@
 #!/bin/bash
-# Sway Keybindings Cheatsheet - Wofi Display Script
-# Displays categorized keybindings from KEYBINDINGS.md
+# Sway Keybindings Cheatsheet - Scratchpad Display
 
 CHEATSHEET="${HOME}/.config/sway/KEYBINDINGS.md"
 
@@ -9,48 +8,21 @@ if [[ ! -f "$CHEATSHEET" ]]; then
     exit 1
 fi
 
-# Parse the markdown and format for wofi
-# Extract keybindings and format with categories
-parse_cheatsheet() {
-    local in_table=false
-    local current_category=""
-    
-    while IFS= read -r line; do
-        # Check for category headers (## Category)
-        if [[ "$line" =~ ^##[[:space:]]+(.+)$ ]]; then
-            current_category="${BASH_REMATCH[1]}"
-            # Print category header
-            echo "=== ${current_category} ==="
-            in_table=false
-        fi
-        
-        # Check for table rows with keybindings
-        if [[ "$line" =~ ^\|\s*\`(.+)\`\s*\|\s*(.+)\s*\|$ ]]; then
-            local keybinding="${BASH_REMATCH[1]}"
-            local action="${BASH_REMATCH[2]}"
-            # Clean up action (remove trailing spaces)
-            action=$(echo "$action" | sed 's/[[:space:]]*$//')
-            echo "${keybinding}: ${action}"
-        fi
-    done < "$CHEATSHEET"
-}
+# Ensure go/bin is in PATH
+export PATH="$PATH:${HOME}/go/bin"
 
-# Display in wofi
-selected=$(parse_cheatsheet | wofi \
-    --dmenu \
-    --prompt "Sway Keybindings" \
-    --width 800 \
-    --height 600 \
-    --location center \
-    --cache-file /dev/null \
-    --matching fuzzy \
-    --insensitive \
-    --style "${HOME}/.config/wofi/style.css" 2>/dev/null || true)
+# Launch ghostty, disable floating, move to scratchpad, and show it
+# Use glow's built-in pager (-p flag) instead of piping to less
+ghostty --title="Keybindings" -e bash -c "glow -p '${CHEATSHEET}'" &
 
-# If user selected something, we could copy it to clipboard or show details
-if [[ -n "$selected" && "$selected" != "=== "* ]]; then
-    # Extract just the keybinding part (before the colon)
-    keybinding=$(echo "$selected" | cut -d':' -f1)
-    # Copy to clipboard using wl-copy
-    echo "$keybinding" | wl-copy 2>/dev/null || true
-fi
+# Wait for window to appear
+sleep 0.5
+
+# Disable floating first (required before moving to scratchpad)
+swaymsg '[title="^Keybindings$"] floating disable'
+
+# Move to scratchpad
+swaymsg '[title="^Keybindings$"] move to scratchpad'
+
+# Show scratchpad
+swaymsg 'scratchpad show'

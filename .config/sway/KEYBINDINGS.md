@@ -21,19 +21,12 @@
 
 ## Navigation
 
-### Focus Movement (Vim Keys)
-
 | Keybinding | Action |
 |------------|--------|
 | `Mod+h` | Focus left |
 | `Mod+j` | Focus down |
 | `Mod+k` | Focus up |
 | `Mod+l` | Focus right |
-
-### Focus Movement (Arrow Keys)
-
-| Keybinding | Action |
-|------------|--------|
 | `Mod+Left` | Focus left |
 | `Mod+Down` | Focus down |
 | `Mod+Up` | Focus up |
@@ -43,19 +36,12 @@
 
 ## Window Movement
 
-### Move Window (Vim Keys)
-
 | Keybinding | Action |
 |------------|--------|
 | `Mod+Shift+h` | Move window left |
 | `Mod+Shift+j` | Move window down |
 | `Mod+Shift+k` | Move window up |
 | `Mod+Shift+l` | Move window right |
-
-### Move Window (Arrow Keys)
-
-| Keybinding | Action |
-|------------|--------|
 | `Mod+Shift+Left` | Move window left |
 | `Mod+Shift+Down` | Move window down |
 | `Mod+Shift+Up` | Move window up |
@@ -64,8 +50,6 @@
 ---
 
 ## Workspaces
-
-### Switch Workspace
 
 | Keybinding | Action |
 |------------|--------|
@@ -79,11 +63,6 @@
 | `Mod+8` | Switch to workspace 8 |
 | `Mod+9` | Switch to workspace 9 |
 | `Mod+0` | Switch to workspace 10 |
-
-### Move Window to Workspace
-
-| Keybinding | Action |
-|------------|--------|
 | `Mod+Shift+1` | Move window to workspace 1 |
 | `Mod+Shift+2` | Move window to workspace 2 |
 | `Mod+Shift+3` | Move window to workspace 3 |
@@ -128,10 +107,14 @@ Enter resize mode: `Mod+r`
 
 | Keybinding | Action |
 |------------|--------|
-| `h` / `Left` | Shrink width |
-| `j` / `Down` | Grow height |
-| `k` / `Up` | Shrink height |
-| `l` / `Right` | Grow width |
+| `h` | Shrink width |
+| `j` | Grow height |
+| `k` | Shrink height |
+| `l` | Grow width |
+| `Left` | Shrink width |
+| `Down` | Grow height |
+| `Up` | Shrink height |
+| `Right` | Grow width |
 | `Return` | Exit resize mode |
 | `Escape` | Exit resize mode |
 
@@ -157,6 +140,7 @@ Enter resize mode: `Mod+r`
 | `XF86MonBrightnessDown` | Decrease brightness 5% |
 | `XF86MonBrightnessUp` | Increase brightness 5% |
 | `Print` | Take screenshot (flameshot) |
+| `Mod+Shift+s` | Take screenshot (flameshot) |
 
 ---
 
