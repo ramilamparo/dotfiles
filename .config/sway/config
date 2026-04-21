@@ -299,7 +299,14 @@ bindsym $mod+r mode "resize"
 # Help:
 #
     # Show keybindings cheatsheet
-    bindsym $mod+F1 exec ~/.local/bin/sway-cheatsheet
+    set $term_cheatsheet ghostty --class=com.ram.help-keybindings -e bash -c "export PATH=\"\$PATH:\$HOME/go/bin\"; glow -p ~/.config/sway/KEYBINDINGS.md"
+    bindsym $mod+F1 exec $term_cheatsheet
+
+# Apply rules for cheatsheet terminal
+for_window [app_id="com.ram.help-keybindings"] floating enable
+for_window [app_id="com.ram.help-keybindings"] resize set 900 600
+for_window [app_id="com.ram.help-keybindings"] move position center
+for_window [app_id="com.ram.help-keybindings"] border pixel 2
 
 #
 # Status Bar:

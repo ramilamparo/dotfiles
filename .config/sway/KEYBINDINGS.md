@@ -148,7 +148,7 @@ Enter resize mode: `Mod+r`
 
 | Keybinding | Action |
 |------------|--------|
-| `Mod+F1` | Show this keybindings cheatsheet |
+| `Mod+F1` | Show this keybindings cheatsheet (floating window) |
 
 ---
 
