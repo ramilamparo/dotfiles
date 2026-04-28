@@ -1,0 +1,173 @@
+# Device configuration packages
+# This file lists all packages to be installed by install-from-yaml.sh
+# (invoked by chezmoi on apply via run_onchange_after_install_packages.sh.tmpl).
+#
+# Required fields:
+#   - name:    identifier (used in DOTFILES_SKIP / DOTFILES_FORCE / logging)
+#   - arch:    install method on Arch (or null)
+#   - ubuntu:  install method on Ubuntu (or null)
+#   - group:   one of shell|terminal|sway|gpu|aur|apps|fonts|dev
+#
+# Optional fields:
+#   - binary:        executable name; defaults to `name`. Used by skip rule.
+#   - config_path:   tilde-expanded path; fallback skip signal when no binary.
+#   - dependencies:  list of other entry names; entry skipped if any dep skipped.
+#   - condition:     gpu_amd | gpu_nvidia (gates entry on hardware detection).
+#
+# Distro install method (object form):
+#   type: pacman    -> sudo pacman -S <package>
+#   type: yay       -> yay -S <package>
+#   type: apt       -> sudo apt install <package>
+#   type: script    -> run a custom script (relative to scripts/ in this dir)
+#   null            -> skip on this distro entirely
+#
+# Object fields:
+#   package: override the package name (defaults to entry `name`)
+#   script:  path to install script (when type: script)
+#
+# Skip rule (in install-from-yaml.sh, evaluated per entry):
+#   1. Listed in DOTFILES_SKIP or matched by DOTFILES_SKIP_GROUP — UNLESS in DOTFILES_FORCE.
+#   2. Any name in `dependencies` is in the skip set (transitive).
+#   3. `command -v <binary>` succeeds.
+#   4. `binary` not defined for entry AND `config_path` exists (fallback for shell-function tools).
+
+packages:
+  # --- shell ---
+  - name: zsh
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: zsh
+    group: shell
+
+  - name: starship
+    arch: { type: pacman }
+    ubuntu: { type: script, script: scripts/install-starship.sh }
+    binary: starship
+    group: shell
+
+  - name: nvm
+    arch: { type: script, script: scripts/install-nvm.sh }
+    ubuntu: { type: script, script: scripts/install-nvm.sh }
+    config_path: ~/.nvm
+    group: shell
+
+  - name: neovim
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: nvim
+    group: shell
+
+  - name: fzf
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: fzf
+    group: shell
+
+  - name: jq
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: jq
+    group: shell
+
+  - name: glow
+    arch: { type: pacman }
+    ubuntu: { type: script, script: scripts/install-glow.sh }
+    binary: glow
+    dependencies: [go]
+    group: shell
+
+  # --- terminal ---
+  - name: ghostty
+    arch: { type: pacman }
+    ubuntu: { type: script, script: scripts/install-ghostty.sh }
+    binary: ghostty
+    group: terminal
+
+  # --- sway ---
+  - name: sway
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: sway
+    group: sway
+
+  - name: swaylock
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: swaylock
+    group: sway
+
+  - name: swaync
+    arch: { type: pacman }
+    ubuntu: { type: apt, package: sway-notification-center }
+    binary: swaync
+    group: sway
+
+  - name: waybar
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: waybar
+    group: sway
+
+  - name: wofi
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: wofi
+    group: sway
+
+  - name: brightnessctl
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: brightnessctl
+    group: sway
+
+  # --- gpu ---
+  - name: amd-gpu
+    arch: { type: pacman, package: lib32-vulkan-radeon }
+    ubuntu: { type: apt, package: mesa-vulkan-drivers }
+    group: gpu
+    condition: gpu_amd
+
+  - name: nvidia-gpu
+    arch: { type: pacman, package: nvidia-utils }
+    ubuntu: { type: apt, package: nvidia-driver-570 }
+    group: gpu
+    condition: gpu_nvidia
+
+  # --- aur ---
+  - name: yay
+    arch: { type: script, script: scripts/install-yay.sh }
+    ubuntu: null
+    binary: yay
+    group: aur
+
+  # --- apps ---
+  - name: sunshine
+    arch: { type: yay, package: sunshine }
+    ubuntu: { type: script, script: scripts/install-sunshine-ubuntu.sh }
+    binary: sunshine
+    group: apps
+
+  - name: flatpak
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: flatpak
+    group: apps
+
+  - name: chromium
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: chromium
+    group: apps
+
+  # --- fonts ---
+  - name: ttf-roboto-mono-nerd
+    arch: { type: pacman }
+    ubuntu: { type: apt, package: fonts-roboto }
+    group: fonts
+
+  # --- dev ---
+  - name: go
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: go
+    group: dev
