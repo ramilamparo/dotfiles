@@ -141,7 +141,8 @@ The package loop's binary check normally gates execution, but
 │   ├── install-from-yaml.sh            ← env-var-driven worker
 │   └── install-<name>.sh               ← per-package custom installers
 ├── .chezmoiignore                      ← lists repo-only paths
-├── run_onchange_after_install_packages.sh.tmpl   ← package-install trigger
+├── .chezmoiscripts/                    ← run scripts (no target files created)
+│   └── run_onchange_after_install_packages.sh.tmpl
 ├── dot_zshrc, dot_bashrc, dot_bash_profile       ← deploy to ~/.{zshrc,...}
 ├── dot_config/                         ← deploys to ~/.config/
 │   └── (sway, waybar, nvim, ghostty, opencode, ...)

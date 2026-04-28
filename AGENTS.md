@@ -13,7 +13,7 @@ this repo follow the conventions below.
 - Five paths at repo root are repo-only and never deploy to `$HOME`:
   `README.md`, `AGENTS.md`, `skills/`, `packages.yaml`, `scripts/`.
   All listed in `.chezmoiignore`.
-- One script at repo root drives package install:
+- One script in `.chezmoiscripts/` drives package install:
   `run_onchange_after_install_packages.sh.tmpl`.
 - The package manifest is `packages.yaml` at repo root (repo-only).
   The worker is `scripts/install-from-yaml.sh` (also repo-only).
@@ -31,6 +31,9 @@ this repo follow the conventions below.
   the `+x` bit on apply.
 - Use `.chezmoiignore` for repo-only files (lives at repo root). One
   glob pattern per line, relative to source.
+- Use `.chezmoiscripts/` for `run_` scripts that should execute during
+  `chezmoi apply` but not create files in `$HOME` (e.g. package install
+  triggers). Scripts there run from a temp dir; target files are not created.
 
 ### Renaming examples
 
