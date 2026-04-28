@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # chezmoi-managed package installer trigger.
 #
-# Hash of packages.yaml is included so chezmoi re-runs this script
-# whenever the manifest changes (run_onchange_ contract).
+# Runs during `chezmoi apply` when this script's content changes
+# (run_onchange_ contract). To force re-run after packages.yaml changes,
+# modify this script or bump the counter below.
 #
-# packages.yaml hash: {{ include "packages.yaml" | sha256sum }}
+# Trigger rev: 1
 
 set -euo pipefail
 
-SRC="{{ .chezmoi.sourceDir }}"
+SRC="$HOME/.local/share/chezmoi"
 WORKER="$SRC/scripts/install-from-yaml.sh"
 YAML="$SRC/packages.yaml"
 
