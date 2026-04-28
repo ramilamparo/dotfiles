@@ -33,6 +33,19 @@
 
 packages:
   # --- shell ---
+  - name: tmux
+    arch: { type: pacman }
+    ubuntu: { type: apt }
+    binary: tmux
+    group: shell
+
+  - name: tmux-plugins
+    arch: { type: script, script: scripts/install-tmux-plugins.sh }
+    ubuntu: { type: script, script: scripts/install-tmux-plugins.sh }
+    config_path: ~/.tmux/plugins/tpm
+    dependencies: [tmux]
+    group: shell
+
   - name: zsh
     arch: { type: pacman }
     ubuntu: { type: apt }
