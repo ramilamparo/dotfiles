@@ -14,7 +14,7 @@ this repo follow the conventions below.
   `README.md`, `AGENTS.md`, `skills/`, `packages.yaml`, `scripts/`.
   All listed in `.chezmoiignore`.
 - One script in `.chezmoiscripts/` drives package install:
-  `run_onchange_after_install_packages.sh.tmpl`.
+  `run_onchange_after_install_packages.sh`.
 - The package manifest is `packages.yaml` at repo root (repo-only).
   The worker is `scripts/install-from-yaml.sh` (also repo-only).
 - The AI skill for adding to this repo is

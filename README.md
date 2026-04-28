@@ -142,7 +142,7 @@ The package loop's binary check normally gates execution, but
 │   └── install-<name>.sh               ← per-package custom installers
 ├── .chezmoiignore                      ← lists repo-only paths
 ├── .chezmoiscripts/                    ← run scripts (no target files created)
-│   └── run_onchange_after_install_packages.sh.tmpl
+│   └── run_onchange_after_install_packages.sh
 ├── dot_zshrc, dot_bashrc, dot_bash_profile       ← deploy to ~/.{zshrc,...}
 ├── dot_config/                         ← deploys to ~/.config/
 │   └── (sway, waybar, nvim, ghostty, opencode, ...)
