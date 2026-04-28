@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Install packages declared in packages.yaml.
 #
-# Invoked by chezmoi (run_onchange_after_install_packages.sh.tmpl) on apply,
+# Invoked by chezmoi (run_onchange_after_install_packages.sh) on apply,
 # or directly from the source dir:
 #   cd "$(chezmoi source-path)"
-#   ./scripts/install-from-yaml.sh ./packages.yaml \
+#   ./scripts/install-from-yaml.sh ./packages.yaml \\
 #       [--dry-run] [--skip a,b] [--skip-group sway,gpu] [--force chromium] [--yes]
 #
 # Env vars (read first, CLI flags override):
@@ -28,6 +28,30 @@ info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 ok()   { echo -e "${GREEN}[OK]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 err()  { echo -e "${RED}[ERR]${NC} $*" >&2; }
+
+# ---------------------------------------------------------------------------
+# Ensure yq is installed (bootstraps from GitHub releases)
+# ---------------------------------------------------------------------------
+ensure_yq() {
+  if command -v yq >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local arch platform
+  arch=$(uname -m)
+  case "$arch" in
+    x86_64)  platform="linux_amd64" ;;
+    aarch64) platform="linux_arm64" ;;
+    armv7l)  platform="linux_arm" ;;
+    *)       err "Unsupported arch for yq: $arch"; exit 1 ;;
+  esac
+
+  info "Installing yq (required to parse packages.yaml)..."
+  wget -q "https://github.com/mikefarah/yq/releases/latest/download/yq_${platform}" -O /tmp/yq
+  chmod +x /tmp/yq
+  sudo mv /tmp/yq /usr/local/bin/yq
+}
+ensure_yq
 
 # ---------------------------------------------------------------------------
 # Args
@@ -57,7 +81,7 @@ done
 
 if [[ -z "$PACKAGES_YAML" || ! -f "$PACKAGES_YAML" ]]; then
   err "Usage: $0 <packages.yaml> [flags]"
-  err "packages.yaml not found: $PACKAGES_YAML"
+  err "packages.yaml not found: ${PACKAGES_YAML:-<empty>}"
   exit 1
 fi
 
@@ -83,7 +107,7 @@ detect_distro() {
 detect_gpu() {
   if command -v lspci >/dev/null 2>&1; then
     if lspci 2>/dev/null | grep -i vga | grep -iq "nvidia"; then echo "nvidia"
-    elif lspci 2>/dev/null | grep -i vga | grep -iq "amd\|ati"; then echo "amd"
+    elif lspci 2>/dev/null | grep -i vga | grep -iq "amd\\|ati"; then echo "amd"
     else echo "unknown"
     fi
   else
@@ -103,181 +127,275 @@ ok "Distro: $DISTRO  GPU: $GPU"
 [[ "$DRY_RUN" == "1" ]] && warn "DRY-RUN MODE — no changes will be made"
 
 # ---------------------------------------------------------------------------
-# YAML parser pick
+# Load packages.yaml into bash arrays via yq
 # ---------------------------------------------------------------------------
-if command -v python3 >/dev/null 2>&1; then
-  PY=python3
-else
-  err "python3 is required to parse packages.yaml"
+# Extract fields as tab-separated values, one package per line.
+# Order: name, group, binary, config_path, condition, dependencies (comma-joined),
+#        arch.type, arch.package, arch.script,
+#        ubuntu.type, ubuntu.package, ubuntu.script
+mapfile -t LINES < <(yq -r '
+  .packages[] |
+  [
+    .name,
+    (.group // ""),
+    (.binary // ""),
+    (.config_path // ""),
+    (.condition // "always"),
+    ((.dependencies // []) | join(",")),
+    (.arch.type // ""),
+    (.arch.package // ""),
+    (.arch.script // ""),
+    (.ubuntu.type // ""),
+    (.ubuntu.package // ""),
+    (.ubuntu.script // "")
+  ] | @tsv
+' "$PACKAGES_YAML")
+
+if [[ ${#LINES[@]} -eq 0 ]]; then
+  err "No packages found in $PACKAGES_YAML"
   exit 1
 fi
 
+# Associative arrays for package data
+declare -A P_GROUP P_BINARY P_CONFIG P_COND P_DEPS
+declare -A P_ARCH_TYPE P_ARCH_PKG P_ARCH_SCRIPT
+declare -A P_UBU_TYPE P_UBU_PKG P_UBU_SCRIPT
+NAMES=()
+
+for line in "${LINES[@]}"; do
+  name=$(echo "$line" | cut -f1)
+  group=$(echo "$line" | cut -f2)
+  binary=$(echo "$line" | cut -f3)
+  config=$(echo "$line" | cut -f4)
+  cond=$(echo "$line" | cut -f5)
+  deps=$(echo "$line" | cut -f6)
+  atype=$(echo "$line" | cut -f7)
+  apkg=$(echo "$line" | cut -f8)
+  ascript=$(echo "$line" | cut -f9)
+  utype=$(echo "$line" | cut -f10)
+  upkg=$(echo "$line" | cut -f11)
+  uscript=$(echo "$line" | cut -f12)
+
+  NAMES+=("$name")
+  P_GROUP[$name]="$group"
+  P_BINARY[$name]="$binary"
+  P_CONFIG[$name]="$config"
+  P_COND[$name]="$cond"
+  P_DEPS[$name]="$deps"
+  P_ARCH_TYPE[$name]="$atype"
+  P_ARCH_PKG[$name]="$apkg"
+  P_ARCH_SCRIPT[$name]="$ascript"
+  P_UBU_TYPE[$name]="$utype"
+  P_UBU_PKG[$name]="$upkg"
+  P_UBU_SCRIPT[$name]="$uscript"
+done
+
 # ---------------------------------------------------------------------------
-# Build action plan (fixed-point dep propagation in Python)
+# Build skip / install sets
 # ---------------------------------------------------------------------------
-PLAN_JSON=$($PY - "$PACKAGES_YAML" "$DISTRO" "$GPU" \
-              "$SKIP_LIST" "$SKIP_GROUP_LIST" "$FORCE_LIST" <<'PY'
-import json, os, shutil, subprocess, sys
-from pathlib import Path
+# Normalise env vars into bash arrays
+IFS=',' read -ra SKIP_ARR  <<< "$SKIP_LIST"
+IFS=',' read -ra SKIP_GRP  <<< "$SKIP_GROUP_LIST"
+IFS=',' read -ra FORCE_ARR <<< "$FORCE_LIST"
 
-try:
-    import yaml
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "--quiet", "pyyaml"])
-    import yaml
+declare -A SKIP_SET SKIP_GRP_SET FORCE_SET
+for s in "${SKIP_ARR[@]}";  do SKIP_SET[${s// /}]=1; done
+for s in "${SKIP_GRP[@]}";  do SKIP_GRP_SET[${s// /}]=1; done
+for s in "${FORCE_ARR[@]}"; do FORCE_SET[${s// /}]=1; done
 
-yaml_path, distro, gpu, skip_csv, skip_grp_csv, force_csv = sys.argv[1:7]
-skip_set  = {x.strip() for x in skip_csv.split(",") if x.strip()}
-skip_grps = {x.strip() for x in skip_grp_csv.split(",") if x.strip()}
-force_set = {x.strip() for x in force_csv.split(",") if x.strip()}
+# Helper: which() returning path
+which_cmd() {
+  if [[ -z "${1:-}" ]]; then
+    return 1
+  fi
+  command -v "$1" 2>/dev/null
+}
 
-with open(yaml_path) as f:
-    data = yaml.safe_load(f)
-entries = data.get("packages", []) or []
+# Pass 1: compute initial skip reason per package.
+# Returns empty string if NOT skipped.
+initial_skip() {
+  local name="$1"
 
-def expand(p):
-    if not p:
-        return p
-    return os.path.expanduser(os.path.expandvars(p))
+  if [[ -n "${FORCE_SET[$name]:-}" ]]; then
+    echo ""  # force overrides everything
+    return
+  fi
 
-def which(b):
-    if not b:
-        return None
-    return shutil.which(b)
+  local cond="${P_COND[$name]}"
+  if [[ "$cond" == "gpu_amd"    && "$GPU" != "amd"    ]]; then echo "condition gpu_amd (got $GPU)"; return; fi
+  if [[ "$cond" == "gpu_nvidia" && "$GPU" != "nvidia" ]]; then echo "condition gpu_nvidia (got $GPU)"; return; fi
 
-def initial_skip(e):
-    """
-    Returns (reason, propagate) tuple, or None if entry is not skipped.
-    propagate=True means dependents should also skip (dep won't be available).
-    propagate=False means the dep IS available (already installed) so dependents don't propagate.
-    """
-    name  = e.get("name")
-    group = e.get("group", "")
-    cond  = e.get("condition", "always")
-    distro_cfg = e.get(distro)
+  # distro availability
+  local dtype dpkg dscript
+  if [[ "$DISTRO" == "arch" ]]; then
+    dtype="${P_ARCH_TYPE[$name]}"
+  else
+    dtype="${P_UBU_TYPE[$name]}"
+  fi
+  if [[ -z "$dtype" ]]; then
+    echo "not available on $DISTRO"
+    return
+  fi
 
-    if name in force_set:
-        return None  # force overrides everything
+  # skip lists
+  if [[ -n "${SKIP_SET[$name]:-}" ]]; then
+    echo "DOTFILES_SKIP"
+    return
+  fi
+  if [[ -n "${SKIP_GRP_SET[${P_GROUP[$name]}]:-}" ]]; then
+    echo "DOTFILES_SKIP_GROUP=${P_GROUP[$name]}"
+    return
+  fi
 
-    if cond == "gpu_amd"    and gpu != "amd":    return (f"condition gpu_amd (got {gpu})", True)
-    if cond == "gpu_nvidia" and gpu != "nvidia": return (f"condition gpu_nvidia (got {gpu})", True)
+  # binary / config_path signal
+  local binary="${P_BINARY[$name]}"
+  [[ -z "$binary" ]] && binary="$name"
 
-    if distro_cfg is None:
-        return (f"not available on {distro}", True)
+  local path
+  if path=$(which_cmd "$binary"); then
+    if [[ "$path" == /snap/* ]]; then
+      echo "binary on PATH ($path) [snap]"
+    else
+      echo "binary on PATH ($path)"
+    fi
+    return
+  fi
 
-    if name in skip_set:
-        return ("DOTFILES_SKIP", True)
-    if group in skip_grps:
-        return (f"DOTFILES_SKIP_GROUP={group}", True)
+  local cfg="${P_CONFIG[$name]}"
+  if [[ -z "$binary" && -n "$cfg" && -e "${cfg/#\~/$HOME}" ]]; then
+    echo "config_path exists ($cfg)"
+    return
+  fi
 
-    binary = e.get("binary", name)
-    cfg    = expand(e.get("config_path"))
+  echo ""  # not skipped
+}
 
-    if binary:
-        path = which(binary)
-        if path:
-            tag = " [snap]" if path.startswith("/snap/") else ""
-            return (f"binary on PATH ({path}){tag}", False)
-    elif cfg and Path(cfg).exists():
-        return (f"config_path exists ({cfg})", False)
+declare -A SKIP_REASON UNAVAILABLE
+for name in "${NAMES[@]}"; do
+  reason=$(initial_skip "$name")
+  if [[ -n "$reason" ]]; then
+    SKIP_REASON[$name]="$reason"
+    # If the reason indicates the dep is unavailable (not just already-installed),
+    # mark it for propagation. Already-installed reasons contain "on PATH" or "exists".
+    if [[ ! "$reason" =~ (on PATH|exists) ]]; then
+      UNAVAILABLE[$name]=1
+    fi
+  fi
+done
 
-    return None  # not skipped
+# Pass 2: fixed-point propagate dep skips (only unavailable deps propagate)
+changed=true
+while $changed; do
+  changed=false
+  for name in "${NAMES[@]}"; do
+    [[ -n "${SKIP_REASON[$name]:-}" ]] && continue
+    [[ -n "${FORCE_SET[$name]:-}" ]] && continue
 
-by_name = {e["name"]: e for e in entries}
-skip_reasons = {}     # name -> reason str
-unavailable = set()   # names whose absence propagates to dependents
-for e in entries:
-    r = initial_skip(e)
-    if r is not None:
-        reason, propagate = r
-        skip_reasons[e["name"]] = reason
-        if propagate:
-            unavailable.add(e["name"])
+    IFS=',' read -ra deps <<< "${P_DEPS[$name]}"
+    for d in "${deps[@]}"; do
+      [[ -z "$d" ]] && continue
+      if [[ -n "${UNAVAILABLE[$d]:-}" ]]; then
+        SKIP_REASON[$name]="dep $d unavailable"
+        UNAVAILABLE[$name]=1
+        changed=true
+        break
+      fi
+    done
+  done
+done
 
-# Fixed-point: propagate dep skips (only for unavailable deps)
-changed = True
-while changed:
-    changed = False
-    for e in entries:
-        name = e["name"]
-        if name in skip_reasons or name in force_set:
-            continue
-        deps = e.get("dependencies", []) or []
-        for d in deps:
-            if d in unavailable:
-                skip_reasons[name] = f"dep {d} unavailable"
-                unavailable.add(name)
-                changed = True
-                break
+# ---------------------------------------------------------------------------
+# Build plan arrays (preserve original order)
+# ---------------------------------------------------------------------------
+PLAN_NAMES=()
+PLAN_ACTIONS=()   # install | skip
+PLAN_METHODS=()   # pacman | yay | apt | script
+PLAN_TARGETS=()   # package name or script path
+PLAN_SNAPS=()     # snap path or ""
+PLAN_REASONS=()   # skip reason
 
-# Build plan
-plan = []
-for e in entries:
-    name  = e["name"]
-    group = e.get("group", "")
-    distro_cfg = e.get(distro)
-    if name in skip_reasons and name not in force_set:
-        plan.append({"name": name, "group": group, "action": "skip", "reason": skip_reasons[name]})
-        continue
-    if distro_cfg is None:
-        plan.append({"name": name, "group": group, "action": "skip", "reason": f"not available on {distro}"})
-        continue
+for name in "${NAMES[@]}"; do
+  PLAN_NAMES+=("$name")
 
-    itype = distro_cfg.get("type", "")
-    pkg   = distro_cfg.get("package") or name
-    sp    = distro_cfg.get("script", "")
-    target = sp if itype == "script" else pkg
+  if [[ -n "${SKIP_REASON[$name]:-}" && -z "${FORCE_SET[$name]:-}" ]]; then
+    PLAN_ACTIONS+=("skip")
+    PLAN_METHODS+=("")
+    PLAN_TARGETS+=("")
+    PLAN_SNAPS+=("")
+    PLAN_REASONS+=("${SKIP_REASON[$name]}")
+    continue
+  fi
 
-    snap_path = ""
-    binary = e.get("binary", name)
-    if binary:
-        p = which(binary)
-        if p and p.startswith("/snap/"):
-            snap_path = p
+  dtype=""; dpkg=""; dscript=""
+  if [[ "$DISTRO" == "arch" ]]; then
+    dtype="${P_ARCH_TYPE[$name]}"
+    dpkg="${P_ARCH_PKG[$name]}"
+    dscript="${P_ARCH_SCRIPT[$name]}"
+  else
+    dtype="${P_UBU_TYPE[$name]}"
+    dpkg="${P_UBU_PKG[$name]}"
+    dscript="${P_UBU_SCRIPT[$name]}"
+  fi
 
-    plan.append({
-        "name": name, "group": group, "action": "install",
-        "method": itype, "target": target,
-        "snap_path": snap_path,
-    })
+  if [[ -z "$dtype" ]]; then
+    PLAN_ACTIONS+=("skip")
+    PLAN_METHODS+=("")
+    PLAN_TARGETS+=("")
+    PLAN_SNAPS+=("")
+    PLAN_REASONS+=("not available on $DISTRO")
+    continue
+  fi
 
-print(json.dumps(plan))
-PY
-)
+  target=""
+  if [[ "$dtype" == "script" ]]; then
+    target="$dscript"
+  else
+    target="${dpkg:-$name}"
+  fi
 
-if [[ -z "$PLAN_JSON" ]]; then
-  err "Action plan generation failed"
-  exit 1
-fi
+  # snap check
+  snap_path=""
+  binary="${P_BINARY[$name]}"
+  [[ -z "$binary" ]] && binary="$name"
+  if path=$(which_cmd "$binary" 2>/dev/null) && [[ "$path" == /snap/* ]]; then
+    snap_path="$path"
+  fi
+
+  PLAN_ACTIONS+=("install")
+  PLAN_METHODS+=("$dtype")
+  PLAN_TARGETS+=("$target")
+  PLAN_SNAPS+=("$snap_path")
+  PLAN_REASONS+=("")
+done
 
 # ---------------------------------------------------------------------------
 # Print plan + confirm
 # ---------------------------------------------------------------------------
-print_plan() {
-  echo
-  info "Action plan:"
-  echo "$PLAN_JSON" | $PY -c '
-import json, sys
-plan = json.load(sys.stdin)
-nlen = max((len(p["name"]) for p in plan), default=4)
-for p in plan:
-    name   = p["name"]
-    action = p["action"]
-    if action == "skip":
-        reason = p["reason"]
-        print(f"  {name:<{nlen}}  skip       {reason}")
-    else:
-        snap   = " [snap]" if p.get("snap_path") else ""
-        method = p["method"]
-        target = p["target"]
-        print(f"  {name:<{nlen}}  install    {method}:{target}{snap}")
-inst = sum(1 for p in plan if p["action"] == "install")
-skip = sum(1 for p in plan if p["action"] == "skip")
-print(f"\nSummary: install={inst}  skip={skip}")
-'
-}
+nlen=0
+for name in "${PLAN_NAMES[@]}"; do
+  ((${#name} > nlen)) && nlen=${#name}
+done
 
-print_plan
+echo
+info "Action plan:"
+
+inst=0; skip=0
+for i in "${!PLAN_NAMES[@]}"; do
+  name="${PLAN_NAMES[$i]}"
+  action="${PLAN_ACTIONS[$i]}"
+  if [[ "$action" == "skip" ]]; then
+    printf "  %-${nlen}s  skip       %s\n" "$name" "${PLAN_REASONS[$i]}"
+    skip=$((skip+1))
+  else
+    snap=""
+    [[ -n "${PLAN_SNAPS[$i]}" ]] && snap=" [snap]"
+    printf "  %-${nlen}s  install    %s:%s%s\n" "$name" "${PLAN_METHODS[$i]}" "${PLAN_TARGETS[$i]}" "$snap"
+    inst=$((inst+1))
+  fi
+done
+
+echo
+echo "Summary: install=$inst  skip=$skip"
 
 if [[ "$DRY_RUN" == "1" ]]; then
   info "Dry-run complete; no changes made."
@@ -305,16 +423,18 @@ run_script()     {
 }
 
 failed=0
-echo "$PLAN_JSON" | $PY -c '
-import json, sys
-for p in json.load(sys.stdin):
-    if p["action"] == "install":
-        name = p["name"]; method = p["method"]; target = p["target"]; snap = p.get("snap_path","")
-        print(f"{name}\t{method}\t{target}\t{snap}")
-' | while IFS=$'\t' read -r name method target snap_path; do
+for i in "${!PLAN_NAMES[@]}"; do
+  [[ "${PLAN_ACTIONS[$i]}" == "skip" ]] && continue
+
+  name="${PLAN_NAMES[$i]}"
+  method="${PLAN_METHODS[$i]}"
+  target="${PLAN_TARGETS[$i]}"
+  snap_path="${PLAN_SNAPS[$i]}"
+
   if [[ -n "$snap_path" ]]; then
     warn "$name: snap version detected at $snap_path; install will create a duplicate."
   fi
+
   info "Installing $name ($method:$target)"
   case "$method" in
     pacman) install_pacman "$target" || { warn "Failed: $name"; failed=$((failed+1)); } ;;
