@@ -1,3 +1,0 @@
-# Personal zsh aliases. Sourced from ~/.zshrc.
-
-alias run_tms='multi_tmux "cd ~/Documents/projects/tms/apps/backend && npm run dev" "cd ~/Documents/projects/tms/apps/frontend && npm run dev" "cd ~/Documents/projects/tms/apps/docs && npm run dev" "cd ~/Documents/projects/tms/apps/login-service && npm run dev" "cd ~/Documents/projects/tms/apps/saaspanel && npm run dev"'
