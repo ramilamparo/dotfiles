@@ -16,8 +16,6 @@ PAGER='less'
 bindkey -v
 # End of lines configured by zsh-newuser-install
 
-eval "$(starship init zsh)"
-
 # Add ~/.local/bin to PATH if not already present
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$HOME/.local/bin:$PATH"
@@ -33,4 +31,16 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Alias for opencode-run (one-off question answering)
-alias ask='opencode-run'
+if command -v opencode-run >/dev/null 2>&1; then
+    alias ask='opencode-run'
+fi
+
+if command -v zoxide >/dev/null 2>&1; then
+    eval "$(zoxide init zsh)"
+fi
+
+if command -v starship >/dev/null 2>&1; then
+    eval "$(starship init zsh)"
+fi
+
+[[ -f ~/.zsh_aliases ]] && source ~/.zsh_aliases
