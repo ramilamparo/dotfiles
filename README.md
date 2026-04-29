@@ -55,6 +55,29 @@ git add . && git commit -m "track foo"   # never push without intent
 chezmoi forget ~/.config/foo/config      # untrack
 ```
 
+## Updating a tracked file from local edits
+
+When a file is already tracked but you've edited it in `$HOME` (e.g.
+tweaked `~/.zshrc` on this host) and want the edits captured in the repo:
+
+```bash
+chezmoi diff ~/.zshrc                    # preview what differs
+chezmoi re-add ~/.zshrc                  # source ← $HOME (wholesale)
+# or, for a selective import:
+chezmoi merge ~/.zshrc                   # interactive 3-way merge
+
+chezmoi cd
+git diff dot_zshrc                       # sanity-check the source change
+git add dot_zshrc
+git commit -m "track: zshrc - <what changed>"
+```
+
+`chezmoi re-add` only updates already-tracked files (won't accidentally
+start tracking a new path on a typo). `chezmoi merge` opens vimdiff (or
+your configured merge tool) with three panes — source (repo),
+destination (`$HOME`), and a merged buffer you write back — for when you
+want to keep some changes from each side.
+
 ## Per-machine config gating
 
 `.chezmoiignore` at the repo root is rendered as a Go template, so we

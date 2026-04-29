@@ -51,7 +51,46 @@ For files containing legitimate secrets:
 chezmoi add --encrypt ~/.ssh/config
 ```
 
-### 2. Add a package to packages.yaml
+### 2. Update a tracked file with local edits ($HOME → source)
+
+User: "save my zshrc changes", "I edited ~/.config/foo/config, push it
+to the repo", "merge my local edits back into the repo".
+
+This is for files that are ALREADY tracked but where `$HOME` has
+diverged from the source and the user wants the divergence captured.
+Direction is the OPPOSITE of capability #9 (apply / merge upstream
+changes).
+
+1. Confirm the file is tracked:
+   ```bash
+   chezmoi managed | grep -F "<path-from-$HOME>"
+   ```
+   If it isn't, fall back to capability #1 (Track a config file).
+2. Show the user the diff so they know what's about to land in source:
+   ```bash
+   chezmoi diff <path>
+   ```
+3. **Secret-scan** the `$HOME` file before re-importing (Safety Rules below).
+4. Choose the import mode:
+   - **Wholesale** (most common): `chezmoi re-add <path>` — source ← `$HOME`.
+   - **Selective**: `chezmoi merge <path>` — opens the 3-way merge tool;
+     user picks which lines to keep from each side.
+5. Verify in the source:
+   ```bash
+   chezmoi cd
+   git diff <source-path>
+   ```
+6. Stage the source file and propose a conventional commit, e.g.
+   `track: zshrc - guard initializers, add zoxide`. **Never run `git push`.**
+
+Notes:
+- `chezmoi add <path>` also works on tracked files, but `re-add` is the
+  explicit "update existing" command and won't surprise the user by
+  silently starting to track a new path if they mistype.
+- For files imported with `--encrypt` originally, use `chezmoi re-add`
+  too — it preserves the encryption attribute.
+
+### 3. Add a package to packages.yaml
 
 User: "track package fastfetch" or "I installed neofetch, add it".
 
@@ -84,7 +123,7 @@ User: "track package fastfetch" or "I installed neofetch, add it".
    "$(chezmoi source-path)/scripts/install-interactive.sh"
    ```
 
-### 3. Track a custom script in `~/.local/bin`
+### 4. Track a custom script in `~/.local/bin`
 
 User: "track my-script in ~/.local/bin".
 
@@ -93,7 +132,7 @@ User: "track my-script in ~/.local/bin".
 3. `chezmoi add <path>`. chezmoi prefixes `executable_` automatically.
 4. Stage + commit.
 
-### 4. Track a custom install script (no apt/pacman package)
+### 5. Track a custom install script (no apt/pacman package)
 
 When a tool needs custom install steps:
 
@@ -110,7 +149,7 @@ When a tool needs custom install steps:
 4. Stage script + packages.yaml together.
 5. Commit.
 
-### 5. Gate a config to specific machines (binary detection)
+### 6. Gate a config to specific machines (binary detection)
 
 User: "ignore sway configs on machines without sway", "stop tracking
 waybar on this KDE box", "make this only apply where X is installed".
@@ -158,7 +197,7 @@ Prefer `lookPath` over `env "XDG_CURRENT_DESKTOP"` — `lookPath` works the
 same in SSH / cron / tty1 applies; the env var is only set inside a
 graphical session.
 
-### 6. Untrack
+### 7. Untrack
 
 User: "stop tracking <path>" or "remove <thing>".
 
@@ -167,7 +206,7 @@ User: "stop tracking <path>" or "remove <thing>".
 - For packages: delete from packages.yaml.
 - Stage + commit.
 
-### 7. Status / drift report
+### 8. Status / drift report
 
 User: "what's tracked", "what's drifted", "show changes".
 
@@ -180,7 +219,7 @@ chezmoi unmanaged ~         # $HOME files NOT tracked
 
 Summarize for the user. Don't dump raw output unless asked.
 
-### 8. Apply or merge upstream changes
+### 9. Apply or merge upstream changes
 
 User: "apply repo changes" or "I pulled, update my system".
 
@@ -202,7 +241,7 @@ picker for a specific apply: `DOTFILES_YES=1 chezmoi apply` only matters
 for the worker, so use the worker directly or pre-set `DOTFILES_ONLY` /
 `DOTFILES_SKIP_GROUP` to scope the install plan.
 
-### 9. Validate
+### 10. Validate
 
 After any change to `packages.yaml`, install scripts, or templates, run:
 
