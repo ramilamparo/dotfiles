@@ -254,10 +254,33 @@ Shell-function tool with no binary on PATH:
   group: shell
 ```
 
+## Scripts directory layout
+
+```
+scripts/
+├── install-from-yaml.sh        non-interactive worker (skip/only/force rules,
+│                               dispatches install). Triggered by chezmoi
+│                               apply via .chezmoiscripts/.
+├── install-interactive.sh      fzf picker UI; forwards selection to the
+│                               worker as --only. Falls through to the worker
+│                               if no TTY or fzf is missing.
+├── lib/install-common.sh       shared helpers (logging, ensure_yq,
+│                               detect_distro/gpu, load_packages). Sourced
+│                               by both top-level scripts.
+└── install-<name>.sh           per-package custom installers, invoked by
+                                the worker when packages.yaml entry has
+                                `type: script`.
+```
+
+The lib script does NOT set `set -euo pipefail` — that's the caller's
+choice. New shared helpers go in the lib only when they're useful to
+both top-level scripts; one-off helpers stay local.
+
 ## Custom install scripts
 
-All scripts under `scripts/` MUST be idempotent. Start each with the
-binary guard:
+All scripts under `scripts/` (the `install-<name>.sh` ones, NOT the
+worker / picker / lib) MUST be idempotent. Start each with the binary
+guard:
 
 ```bash
 #!/usr/bin/env bash
@@ -312,18 +335,34 @@ git commit -m "track: ghostty config"
      binary: fastfetch
      group: apps
    ```
-2. Validate via dry-run:
+2. Validate via dry-run (verifies the entry parses and resolves a
+   distro install method):
    ```bash
    DOTFILES_DRY_RUN=1 "$(chezmoi source-path)/scripts/install-from-yaml.sh" \
-       "$(chezmoi source-path)/packages.yaml"
+       "$(chezmoi source-path)/packages.yaml" --only fastfetch
    ```
-   The new entry should appear in the action plan.
+   The new entry should appear with action `install`.
 3. Commit:
    ```bash
    chezmoi cd
    git add packages.yaml
    git commit -m "track: add fastfetch"
    ```
+4. Don't run the actual install yourself — suggest the user run
+   `./scripts/install-interactive.sh` (or `chezmoi apply`) to pick it up.
+
+### Pick packages interactively
+
+For ad-hoc "install just these few things" workflows:
+
+```bash
+"$(chezmoi source-path)/scripts/install-interactive.sh"               # fzf picker
+"$(chezmoi source-path)/scripts/install-interactive.sh" -- --dry-run  # preview
+```
+
+Requires `fzf`. The picker forwards selection to the worker as `--only`,
+and the worker auto-includes transitive deps. `chezmoi apply` runs the
+picker by default when stdout is a TTY and fzf is installed.
 
 ### Track a custom install script (example: a tool not in apt)
 

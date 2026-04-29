@@ -72,10 +72,17 @@ User: "track package fastfetch" or "I installed neofetch, add it".
 5. Validate:
    ```bash
    DOTFILES_DRY_RUN=1 "$(chezmoi source-path)/scripts/install-from-yaml.sh" \
-       "$(chezmoi source-path)/packages.yaml"
+       "$(chezmoi source-path)/packages.yaml" --only <name>
    ```
-   New entry should appear with the expected action.
+   The new entry should appear with action `install` (plus any deps
+   auto-included by `--only`).
 6. Stage `packages.yaml` and propose `track: add <name>` commit. Never push.
+7. If the user wants to actually install now, suggest the interactive
+   picker — don't run it yourself (Safety Rule: never run package
+   managers without explicit ask):
+   ```bash
+   "$(chezmoi source-path)/scripts/install-interactive.sh"
+   ```
 
 ### 3. Track a custom script in `~/.local/bin`
 
@@ -187,6 +194,14 @@ chezmoi merge <path>                # 3-way merge (uses configured tool)
 For conflicts, `chezmoi merge <path>` opens an interactive merge tool
 (default vimdiff). User resolves; chezmoi writes the result.
 
+When `chezmoi apply` triggers the package phase, the
+`run_onchange_after_install_packages.sh` script launches the fzf picker
+(`scripts/install-interactive.sh`) if a TTY + fzf are available;
+otherwise it falls back to the non-interactive worker. To bypass the
+picker for a specific apply: `DOTFILES_YES=1 chezmoi apply` only matters
+for the worker, so use the worker directly or pre-set `DOTFILES_ONLY` /
+`DOTFILES_SKIP_GROUP` to scope the install plan.
+
 ### 9. Validate
 
 After any change to `packages.yaml`, install scripts, or templates, run:
@@ -194,6 +209,13 @@ After any change to `packages.yaml`, install scripts, or templates, run:
 ```bash
 chezmoi diff                        # file changes preview
 DOTFILES_DRY_RUN=1 chezmoi apply    # full dry-run including packages
+```
+
+Or use the worker directly to scope the dry-run to specific entries:
+
+```bash
+"$(chezmoi source-path)/scripts/install-from-yaml.sh" \
+    "$(chezmoi source-path)/packages.yaml" --only <name> --dry-run
 ```
 
 Confirm no errors and the action plan reflects intent.

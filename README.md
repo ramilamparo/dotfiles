@@ -78,6 +78,27 @@ chezmoi ignored                       # what's hidden on this machine
 chezmoi execute-template < "$(chezmoi source-path)/.chezmoiignore"
 ```
 
+## Interactive picker
+
+When `chezmoi apply` triggers the package phase and stdout is a TTY with
+`fzf` installed, an interactive picker runs by default — tab-select the
+packages you want, then `ENTER` to install. Otherwise (bootstrap, CI, no
+fzf), apply falls back to the non-interactive worker, which installs
+everything not already on PATH.
+
+To run the picker manually:
+
+```bash
+cd "$(chezmoi source-path)"
+./scripts/install-interactive.sh                   # tab-select, then install
+./scripts/install-interactive.sh -- --dry-run      # preview without installing
+./scripts/install-interactive.sh -- --yes          # skip the confirm prompt
+```
+
+The picker classifies each package as `available` / `installed` /
+`unavail` (wrong distro/GPU), forwards your selection to the worker as
+`--only`, and the worker auto-includes transitive dependencies.
+
 ## Skipping or forcing packages
 
 The package installer reads env vars (because chezmoi's `run_onchange_*`
@@ -86,15 +107,19 @@ scripts don't take CLI args). Set them on the command line for one apply:
 ```bash
 DOTFILES_SKIP=nvm,glow chezmoi apply               # skip by name
 DOTFILES_SKIP_GROUP=sway chezmoi apply             # skip whole group
-DOTFILES_FORCE=chromium chezmoi apply              # force install (override skip)
+DOTFILES_ONLY=glow chezmoi apply                   # allowlist (deps auto-included)
+DOTFILES_ONLY_GROUP=shell chezmoi apply            # allowlist whole group
+DOTFILES_FORCE=chromium chezmoi apply              # overrides SKIP and ONLY
 DOTFILES_DRY_RUN=1 chezmoi apply                   # preview package phase
+DOTFILES_YES=1 chezmoi apply                       # skip the confirm prompt
 ```
 
-You can also invoke the installer directly from the source dir:
+You can also invoke the worker directly from the source dir:
 
 ```bash
 cd "$(chezmoi source-path)"
 ./scripts/install-from-yaml.sh ./packages.yaml --skip-group sway --dry-run
+./scripts/install-from-yaml.sh ./packages.yaml --only glow,fzf --dry-run
 ```
 
 ## What gets installed
@@ -162,6 +187,8 @@ The package loop's binary check normally gates execution, but
 ├── packages.yaml                       ← repo-only — package manifest
 ├── scripts/                            ← repo-only — installer + custom installers
 │   ├── install-from-yaml.sh            ← env-var-driven worker
+│   ├── install-interactive.sh          ← fzf picker UI → worker --only
+│   ├── lib/install-common.sh           ← shared helpers (sourced by both)
 │   └── install-<name>.sh               ← per-package custom installers
 ├── .chezmoiignore                      ← lists repo-only paths
 ├── .chezmoiscripts/                    ← run scripts (no target files created)

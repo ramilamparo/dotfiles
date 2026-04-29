@@ -5,52 +5,36 @@
 # or directly from the source dir:
 #   cd "$(chezmoi source-path)"
 #   ./scripts/install-from-yaml.sh ./packages.yaml \\
-#       [--dry-run] [--skip a,b] [--skip-group sway,gpu] [--force chromium] [--yes]
+#       [--dry-run] [--skip a,b] [--skip-group sway,gpu] \\
+#       [--only c,d] [--only-group shell] \\
+#       [--force chromium] [--yes]
 #
 # Env vars (read first, CLI flags override):
 #   DOTFILES_SKIP         comma-separated names to skip
 #   DOTFILES_SKIP_GROUP   comma-separated groups to skip
-#   DOTFILES_FORCE        comma-separated names to force-install (overrides skip)
+#   DOTFILES_ONLY         comma-separated names to allow (others skipped)
+#   DOTFILES_ONLY_GROUP   comma-separated groups to allow
+#   DOTFILES_FORCE        comma-separated names to force-install
+#                         (overrides SKIP, SKIP_GROUP, ONLY, ONLY_GROUP)
 #   DOTFILES_DRY_RUN      "1" -> preview only
 #   DOTFILES_YES          "1" -> auto-confirm action plan
 #
-# Skip rule per entry:
-#   1. In SKIP / SKIP_GROUP, unless in FORCE.
-#   2. Any dep is in skip set (transitive).
-#   3. command -v <binary> succeeds.
-#   4. No binary defined AND config_path exists.
+# Skip rule per entry (FORCE overrides every rule below):
+#   1. Distro / GPU condition does not match host.
+#   2. Listed in SKIP, or group listed in SKIP_GROUP.
+#   3. ONLY-mode active (ONLY or ONLY_GROUP non-empty) AND entry is
+#      neither in the allowlist nor a transitive dep of an allowlisted
+#      entry. Deps of allowlisted packages are auto-included.
+#   4. Any dep is in the skip set (transitive propagation).
+#   5. `command -v <binary>` succeeds (already installed).
+#   6. No binary defined AND config_path exists.
 
 set -euo pipefail
 
-# ---------------------------------------------------------------------------
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
-info() { echo -e "${BLUE}[INFO]${NC} $*"; }
-ok()   { echo -e "${GREEN}[OK]${NC} $*"; }
-warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
-err()  { echo -e "${RED}[ERR]${NC} $*" >&2; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/install-common.sh
+source "$SCRIPT_DIR/lib/install-common.sh"
 
-# ---------------------------------------------------------------------------
-# Ensure yq is installed (bootstraps from GitHub releases)
-# ---------------------------------------------------------------------------
-ensure_yq() {
-  if command -v yq >/dev/null 2>&1; then
-    return 0
-  fi
-
-  local arch platform
-  arch=$(uname -m)
-  case "$arch" in
-    x86_64)  platform="linux_amd64" ;;
-    aarch64) platform="linux_arm64" ;;
-    armv7l)  platform="linux_arm" ;;
-    *)       err "Unsupported arch for yq: $arch"; exit 1 ;;
-  esac
-
-  info "Installing yq (required to parse packages.yaml)..."
-  wget -q "https://github.com/mikefarah/yq/releases/latest/download/yq_${platform}" -O /tmp/yq
-  chmod +x /tmp/yq
-  sudo mv /tmp/yq /usr/local/bin/yq
-}
 ensure_yq
 
 # ---------------------------------------------------------------------------
@@ -61,6 +45,8 @@ shift || true
 
 SKIP_LIST="${DOTFILES_SKIP:-}"
 SKIP_GROUP_LIST="${DOTFILES_SKIP_GROUP:-}"
+ONLY_LIST="${DOTFILES_ONLY:-}"
+ONLY_GROUP_LIST="${DOTFILES_ONLY_GROUP:-}"
 FORCE_LIST="${DOTFILES_FORCE:-}"
 DRY_RUN="${DOTFILES_DRY_RUN:-0}"
 YES="${DOTFILES_YES:-0}"
@@ -73,6 +59,10 @@ while [[ $# -gt 0 ]]; do
     --skip=*)         SKIP_LIST="${SKIP_LIST:+$SKIP_LIST,}${1#--skip=}"; shift ;;
     --skip-group)     SKIP_GROUP_LIST="${SKIP_GROUP_LIST:+$SKIP_GROUP_LIST,}$2"; shift 2 ;;
     --skip-group=*)   SKIP_GROUP_LIST="${SKIP_GROUP_LIST:+$SKIP_GROUP_LIST,}${1#--skip-group=}"; shift ;;
+    --only)           ONLY_LIST="${ONLY_LIST:+$ONLY_LIST,}$2"; shift 2 ;;
+    --only=*)         ONLY_LIST="${ONLY_LIST:+$ONLY_LIST,}${1#--only=}"; shift ;;
+    --only-group)     ONLY_GROUP_LIST="${ONLY_GROUP_LIST:+$ONLY_GROUP_LIST,}$2"; shift 2 ;;
+    --only-group=*)   ONLY_GROUP_LIST="${ONLY_GROUP_LIST:+$ONLY_GROUP_LIST,}${1#--only-group=}"; shift ;;
     --force)          FORCE_LIST="${FORCE_LIST:+$FORCE_LIST,}$2"; shift 2 ;;
     --force=*)        FORCE_LIST="${FORCE_LIST:+$FORCE_LIST,}${1#--force=}"; shift ;;
     *) err "Unknown argument: $1"; exit 1 ;;
@@ -84,36 +74,6 @@ if [[ -z "$PACKAGES_YAML" || ! -f "$PACKAGES_YAML" ]]; then
   err "packages.yaml not found: ${PACKAGES_YAML:-<empty>}"
   exit 1
 fi
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# ---------------------------------------------------------------------------
-# Detect distro / GPU
-# ---------------------------------------------------------------------------
-detect_distro() {
-  if [[ -f /etc/os-release ]]; then
-    # shellcheck source=/dev/null
-    source /etc/os-release
-    case "${ID:-}" in
-      arch|manjaro|endeavouros) echo "arch" ;;
-      ubuntu|debian|pop|kubuntu) echo "ubuntu" ;;
-      *) echo "unknown" ;;
-    esac
-  else
-    echo "unknown"
-  fi
-}
-
-detect_gpu() {
-  if command -v lspci >/dev/null 2>&1; then
-    if lspci 2>/dev/null | grep -i vga | grep -iq "nvidia"; then echo "nvidia"
-    elif lspci 2>/dev/null | grep -i vga | grep -iq "amd\\|ati"; then echo "amd"
-    else echo "unknown"
-    fi
-  else
-    echo "unknown"
-  fi
-}
 
 DISTRO="$(detect_distro)"
 GPU="$(detect_gpu)"
@@ -127,89 +87,62 @@ ok "Distro: $DISTRO  GPU: $GPU"
 [[ "$DRY_RUN" == "1" ]] && warn "DRY-RUN MODE — no changes will be made"
 
 # ---------------------------------------------------------------------------
-# Load packages.yaml into bash arrays via yq
+# Load packages.yaml into bash arrays via the shared library
 # ---------------------------------------------------------------------------
-# Extract fields as tab-separated values, one package per line.
-# Order: name, group, binary, config_path, condition, dependencies (comma-joined),
-#        arch.type, arch.package, arch.script,
-#        ubuntu.type, ubuntu.package, ubuntu.script
-mapfile -t LINES < <(yq -r '
-  .packages[] |
-  [
-    .name,
-    (.group // ""),
-    (.binary // ""),
-    (.config_path // ""),
-    (.condition // "always"),
-    ((.dependencies // []) | join(",")),
-    (.arch.type // ""),
-    (.arch.package // ""),
-    (.arch.script // ""),
-    (.ubuntu.type // ""),
-    (.ubuntu.package // ""),
-    (.ubuntu.script // "")
-  ] | @tsv
-' "$PACKAGES_YAML")
-
-if [[ ${#LINES[@]} -eq 0 ]]; then
-  err "No packages found in $PACKAGES_YAML"
-  exit 1
-fi
-
-# Associative arrays for package data
 declare -A P_GROUP P_BINARY P_CONFIG P_COND P_DEPS
 declare -A P_ARCH_TYPE P_ARCH_PKG P_ARCH_SCRIPT
 declare -A P_UBU_TYPE P_UBU_PKG P_UBU_SCRIPT
 NAMES=()
-
-for line in "${LINES[@]}"; do
-  name=$(echo "$line" | cut -f1)
-  group=$(echo "$line" | cut -f2)
-  binary=$(echo "$line" | cut -f3)
-  config=$(echo "$line" | cut -f4)
-  cond=$(echo "$line" | cut -f5)
-  deps=$(echo "$line" | cut -f6)
-  atype=$(echo "$line" | cut -f7)
-  apkg=$(echo "$line" | cut -f8)
-  ascript=$(echo "$line" | cut -f9)
-  utype=$(echo "$line" | cut -f10)
-  upkg=$(echo "$line" | cut -f11)
-  uscript=$(echo "$line" | cut -f12)
-
-  NAMES+=("$name")
-  P_GROUP[$name]="$group"
-  P_BINARY[$name]="$binary"
-  P_CONFIG[$name]="$config"
-  P_COND[$name]="$cond"
-  P_DEPS[$name]="$deps"
-  P_ARCH_TYPE[$name]="$atype"
-  P_ARCH_PKG[$name]="$apkg"
-  P_ARCH_SCRIPT[$name]="$ascript"
-  P_UBU_TYPE[$name]="$utype"
-  P_UBU_PKG[$name]="$upkg"
-  P_UBU_SCRIPT[$name]="$uscript"
-done
+load_packages "$PACKAGES_YAML"
 
 # ---------------------------------------------------------------------------
 # Build skip / install sets
 # ---------------------------------------------------------------------------
 # Normalise env vars into bash arrays
-IFS=',' read -ra SKIP_ARR  <<< "$SKIP_LIST"
-IFS=',' read -ra SKIP_GRP  <<< "$SKIP_GROUP_LIST"
-IFS=',' read -ra FORCE_ARR <<< "$FORCE_LIST"
+IFS=',' read -ra SKIP_ARR     <<< "$SKIP_LIST"
+IFS=',' read -ra SKIP_GRP     <<< "$SKIP_GROUP_LIST"
+IFS=',' read -ra ONLY_ARR     <<< "$ONLY_LIST"
+IFS=',' read -ra ONLY_GRP_ARR <<< "$ONLY_GROUP_LIST"
+IFS=',' read -ra FORCE_ARR    <<< "$FORCE_LIST"
 
-declare -A SKIP_SET SKIP_GRP_SET FORCE_SET
-for s in "${SKIP_ARR[@]}";  do SKIP_SET[${s// /}]=1; done
-for s in "${SKIP_GRP[@]}";  do SKIP_GRP_SET[${s// /}]=1; done
-for s in "${FORCE_ARR[@]}"; do FORCE_SET[${s// /}]=1; done
+declare -A SKIP_SET SKIP_GRP_SET ONLY_SET ONLY_GRP_SET FORCE_SET
+for s in "${SKIP_ARR[@]}";     do [[ -n "$s" ]] && SKIP_SET[${s// /}]=1; done
+for s in "${SKIP_GRP[@]}";     do [[ -n "$s" ]] && SKIP_GRP_SET[${s// /}]=1; done
+for s in "${ONLY_ARR[@]}";     do [[ -n "$s" ]] && ONLY_SET[${s// /}]=1; done
+for s in "${ONLY_GRP_ARR[@]}"; do [[ -n "$s" ]] && ONLY_GRP_SET[${s// /}]=1; done
+for s in "${FORCE_ARR[@]}";    do [[ -n "$s" ]] && FORCE_SET[${s// /}]=1; done
 
-# Helper: which() returning path
-which_cmd() {
-  if [[ -z "${1:-}" ]]; then
-    return 1
-  fi
-  command -v "$1" 2>/dev/null
-}
+# Allowlist mode active iff either ONLY or ONLY_GROUP is non-empty.
+# (Use the original strings, not the array; empty assoc arrays trip `set -u`.)
+ONLY_MODE=0
+if [[ -n "$ONLY_LIST" || -n "$ONLY_GROUP_LIST" ]]; then
+  ONLY_MODE=1
+
+  # Seed ONLY_SET with every package whose group is allowlisted.
+  for name in "${NAMES[@]}"; do
+    g="${P_GROUP[$name]}"
+    if [[ -n "${ONLY_GRP_SET[$g]:-}" ]]; then
+      ONLY_SET[$name]=1
+    fi
+  done
+
+  # Auto-include transitive dependencies of allowlisted entries.
+  changed=true
+  while $changed; do
+    changed=false
+    for name in "${NAMES[@]}"; do
+      [[ -z "${ONLY_SET[$name]:-}" ]] && continue
+      IFS=',' read -ra deps <<< "${P_DEPS[$name]}"
+      for d in "${deps[@]}"; do
+        [[ -z "$d" ]] && continue
+        if [[ -z "${ONLY_SET[$d]:-}" ]]; then
+          ONLY_SET[$d]=1
+          changed=true
+        fi
+      done
+    done
+  done
+fi
 
 # Pass 1: compute initial skip reason per package.
 # Returns empty string if NOT skipped.
@@ -247,6 +180,12 @@ initial_skip() {
     return
   fi
 
+  # allowlist (only mode)
+  if [[ "$ONLY_MODE" == "1" && -z "${ONLY_SET[$name]:-}" ]]; then
+    echo "not in DOTFILES_ONLY"
+    return
+  fi
+
   # binary / config_path signal
   local binary="${P_BINARY[$name]}"
   [[ -z "$binary" ]] && binary="$name"
@@ -275,9 +214,12 @@ for name in "${NAMES[@]}"; do
   reason=$(initial_skip "$name")
   if [[ -n "$reason" ]]; then
     SKIP_REASON[$name]="$reason"
-    # If the reason indicates the dep is unavailable (not just already-installed),
-    # mark it for propagation. Already-installed reasons contain "on PATH" or "exists".
-    if [[ ! "$reason" =~ (on PATH|exists) ]]; then
+    # If the reason indicates the dep is unavailable (not just already-installed
+    # or filtered out by the user's allowlist), mark it for propagation.
+    # Already-installed reasons contain "on PATH" or "exists".
+    # "not in DOTFILES_ONLY" never propagates because deps were auto-expanded
+    # into ONLY_SET, so no allowlisted package depends on a filtered one.
+    if [[ ! "$reason" =~ (on PATH|exists|not in DOTFILES_ONLY) ]]; then
       UNAVAILABLE[$name]=1
     fi
   fi
