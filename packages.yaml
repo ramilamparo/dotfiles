@@ -89,6 +89,12 @@ packages:
     dependencies: [go]
     group: shell
 
+  - name: zoxide
+    arch: { type: pacman }
+    ubuntu: { type: script, script: scripts/install-zoxide.sh }
+    binary: zoxide
+    group: shell
+
   # --- terminal ---
   - name: ghostty
     arch: { type: pacman }
