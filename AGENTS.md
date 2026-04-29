@@ -107,17 +107,43 @@ Hostname-specific (e.g. laptop vs desktop):
 {{ end }}
 ```
 
-DE-specific (no built-in var; use a custom data value or env detection):
+DE-specific. No built-in `.chezmoi.de` var. In order of preference:
+
 ```
-{{ if env "XDG_CURRENT_DESKTOP" | eq "KDE" -}}
+{{ if lookPath "plasmashell" -}}            # KDE installed (most reliable)
+window-decoration = client
+{{ end }}
+
+{{ if lookPath "sway" -}}                   # sway installed
+include /etc/sway/config.d/*
+{{ end }}
+
+{{ if env "XDG_CURRENT_DESKTOP" | eq "KDE" -}}   # KDE running NOW (env var)
 window-decoration = client
 {{ end }}
 ```
 
+`lookPath` is preferred — it works the same whether `chezmoi apply` runs
+from a graphical session, an SSH login, or a tty. Common detection probes:
+
+| Desktop / WM     | `lookPath` probe |
+|------------------|------------------|
+| GNOME            | `gnome-shell`    |
+| KDE Plasma       | `plasmashell`    |
+| XFCE             | `xfce4-session`  |
+| sway             | `sway`           |
+| Hyprland         | `Hyprland`       |
+
 ## .chezmoiignore patterns
 
-Lives at repo root. One glob per line. Patterns match source paths, not
-target paths. Templated — you can conditionally ignore.
+Lives at repo root. One glob per line. Patterns match **target paths**
+(post-rename, post-`dot_` prefix) — so write `.config/sway/**`, not
+`dot_config/sway/**`. The file is auto-rendered as a Go template, so you
+can conditionally ignore.
+
+Repo-only files at the source root (no `dot_` prefix) have target == source,
+which is why patterns like `/README.md` and `/skills/**` work to keep them
+out of `$HOME`.
 
 ```
 /README.md
@@ -125,15 +151,34 @@ target paths. Templated — you can conditionally ignore.
 /skills/**
 /packages.yaml
 /scripts/**
-# ignore an entire tree on non-linux
-{{ if ne .chezmoi.os "linux" }}
-dot_config/sway/**
-dot_config/waybar/**
-{{ end }}
+
+# Always ignored regardless of host
+.bash_profile
+.bashrc
+
+# Ignored on hosts where sway is not installed
+{{- if not (lookPath "sway") }}
+.config/sway/**
+.config/waybar/**
+.config/wofi/**
+.local/bin/pacman-wofi
+{{- end }}
 ```
 
 Leading-slash patterns anchor at the repo root (so `/README.md` ignores
 only the root README, not nested ones like `dot_config/nvim/README.md`).
+
+### Gating by installed binary (preferred over OS / hostname)
+
+`lookPath "<binary>"` returns the binary path, or empty if missing. Gating
+on it mirrors the install-skip rule in `scripts/install-from-yaml.sh`
+(`command -v <binary>`), so ignore-policy and install-policy stay in sync:
+a machine that has the binary gets both the package and the configs; a
+machine that doesn't gets neither, and `chezmoi diff` stays quiet about it.
+
+Prefer this over `XDG_CURRENT_DESKTOP` env detection (which is only set
+inside a graphical session — not in SSH, cron, or tty1 applies) or
+hostname matching (fragile).
 
 ## packages.yaml conventions
 
@@ -314,6 +359,29 @@ chezmoi merge ~/.zshrc              # if there's a conflict on .zshrc
 chezmoi forget ~/.config/old-thing/     # stop tracking, leave $HOME copy
 chezmoi cd && git commit -m "untrack: old-thing"
 ```
+
+### Gate a config so it's only applied on machines with a binary
+
+Goal: keep sway/waybar/wofi configs in source, but make them invisible
+(no diff, no apply) on machines without sway installed.
+
+1. Edit `$(chezmoi source-path)/.chezmoiignore`:
+   ```gotmpl
+   {{- if not (lookPath "sway") }}
+   .config/sway/**
+   .config/waybar/**
+   .config/wofi/**
+   .local/bin/pacman-wofi
+   {{- end }}
+   ```
+2. Verify the render and that `diff` is quiet on this host:
+   ```bash
+   chezmoi execute-template < "$(chezmoi source-path)/.chezmoiignore"
+   chezmoi ignored                          # confirms the gated entries
+   chezmoi diff | grep -E "^diff --git"     # should not list gated paths
+   ```
+3. Commit `.chezmoiignore`. The same source still applies on a sway machine
+   because `lookPath "sway"` is non-empty there.
 
 ## Hard rules
 

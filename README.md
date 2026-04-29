@@ -55,6 +55,29 @@ git add . && git commit -m "track foo"   # never push without intent
 chezmoi forget ~/.config/foo/config      # untrack
 ```
 
+## Per-machine config gating
+
+`.chezmoiignore` at the repo root is rendered as a Go template, so we
+gate configs on whether the relevant binary is installed. On a KDE box
+without sway, `chezmoi diff` stays quiet about sway/waybar/wofi configs
+because they're conditionally ignored:
+
+```gotmpl
+{{- if not (lookPath "sway") }}
+.config/sway/**
+.config/waybar/**
+.config/wofi/**
+{{- end }}
+```
+
+This is the same skip rule (`command -v <binary>`) the package installer
+uses, so configs and packages stay in sync per host. Verify what's gated:
+
+```bash
+chezmoi ignored                       # what's hidden on this machine
+chezmoi execute-template < "$(chezmoi source-path)/.chezmoiignore"
+```
+
 ## Skipping or forcing packages
 
 The package installer reads env vars (because chezmoi's `run_onchange_*`

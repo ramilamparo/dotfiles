@@ -3,3 +3,24 @@
 /skills/**
 /packages.yaml
 /scripts/**
+
+# Bash startup files — always ignored (user uses zsh)
+.bash_profile
+.bashrc
+
+# Sway stack — ignored when sway is not installed
+{{- if not (lookPath "sway") }}
+.config/sway/**
+.config/swaylock/**
+.config/swaync/**
+.config/waybar/**
+.config/wofi/**
+.local/bin/pacman-wofi
+.local/bin/restore_displays
+{{- end }}
+
+# Sunshine — ignored when sunshine is not installed
+{{- if not (lookPath "sunshine") }}
+.config/sunshine/**
+.local/bin/start_sunshine
+{{- end }}

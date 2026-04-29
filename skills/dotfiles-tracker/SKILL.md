@@ -103,7 +103,55 @@ When a tool needs custom install steps:
 4. Stage script + packages.yaml together.
 5. Commit.
 
-### 5. Untrack
+### 5. Gate a config to specific machines (binary detection)
+
+User: "ignore sway configs on machines without sway", "stop tracking
+waybar on this KDE box", "make this only apply where X is installed".
+
+`.chezmoiignore` at the repo root is auto-rendered as a Go template.
+Patterns inside an `{{ if not (lookPath "<binary>") }}` block are only
+active on hosts where the binary is missing — perfect for hiding
+DE-specific configs on the wrong DE.
+
+1. Confirm the binary that should drive the gate. Prefer the same name
+   `packages.yaml` uses in the relevant entry's `binary:` field (e.g.
+   `sway`, `sunshine`, `plasmashell`) so ignore-policy and install-policy
+   stay aligned.
+2. Edit `$(chezmoi source-path)/.chezmoiignore`. **Patterns must be target
+   paths** (post-`dot_` rename): `.config/sway/**`, NOT
+   `dot_config/sway/**`.
+   ```gotmpl
+   {{- if not (lookPath "sway") }}
+   .config/sway/**
+   .config/waybar/**
+   .config/wofi/**
+   .local/bin/pacman-wofi
+   {{- end }}
+   ```
+3. Validate:
+   ```bash
+   chezmoi execute-template < "$(chezmoi source-path)/.chezmoiignore"
+   chezmoi ignored | sort               # gated entries should appear here
+   chezmoi diff | grep -E "^diff --git" # should not list gated paths
+   ```
+4. Stage `.chezmoiignore` and commit (`track: gate <thing> on <binary>`).
+   Don't push.
+
+Common DE-detection probes for `lookPath`:
+
+| Desktop / WM | Probe          |
+|--------------|----------------|
+| GNOME        | `gnome-shell`  |
+| KDE Plasma   | `plasmashell`  |
+| XFCE         | `xfce4-session`|
+| sway         | `sway`         |
+| Hyprland     | `Hyprland`     |
+
+Prefer `lookPath` over `env "XDG_CURRENT_DESKTOP"` — `lookPath` works the
+same in SSH / cron / tty1 applies; the env var is only set inside a
+graphical session.
+
+### 6. Untrack
 
 User: "stop tracking <path>" or "remove <thing>".
 
@@ -112,7 +160,7 @@ User: "stop tracking <path>" or "remove <thing>".
 - For packages: delete from packages.yaml.
 - Stage + commit.
 
-### 6. Status / drift report
+### 7. Status / drift report
 
 User: "what's tracked", "what's drifted", "show changes".
 
@@ -125,7 +173,7 @@ chezmoi unmanaged ~         # $HOME files NOT tracked
 
 Summarize for the user. Don't dump raw output unless asked.
 
-### 7. Apply or merge upstream changes
+### 8. Apply or merge upstream changes
 
 User: "apply repo changes" or "I pulled, update my system".
 
@@ -139,7 +187,7 @@ chezmoi merge <path>                # 3-way merge (uses configured tool)
 For conflicts, `chezmoi merge <path>` opens an interactive merge tool
 (default vimdiff). User resolves; chezmoi writes the result.
 
-### 8. Validate
+### 9. Validate
 
 After any change to `packages.yaml`, install scripts, or templates, run:
 
