@@ -24,6 +24,9 @@
 font-family = RobotoMono Nerd Font Mono
 theme = Catppuccin Mocha
 window-padding-x = 16
+{{- if contains "KDE" (env "XDG_CURRENT_DESKTOP") }}
+window-decoration = client
+{{- end }}
 
 # Config syntax crash course
 # ==========================
